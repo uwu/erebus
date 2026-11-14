@@ -4,7 +4,7 @@ use std::ffi::c_void;
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use erebus_engine::ThemeCtx;
+use erebus_runtime::ThemeCtx;
 use fxhash::FxHashMap;
 use windows_sys::core::HRESULT;
 

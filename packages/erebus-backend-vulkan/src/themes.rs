@@ -6,7 +6,7 @@ use std::{
     sync::{Mutex, MutexGuard, Once, PoisonError},
 };
 
-use erebus_engine::{ThemeCtx, ThemeModule};
+use erebus_runtime::{ThemeCtx, ThemeModule};
 use erebus_ipc::{
     backend::{self, IpcBackend},
     config::{ConfigStore, ThemeEntry},
@@ -78,7 +78,7 @@ fn load(
     entry: &ThemeEntry,
     settings: &HashMap<String, SettingValue>,
     cache: &[Compiled],
-) -> erebus_engine::Result<(Compiled, ThemeCtx)> {
+) -> erebus_runtime::Result<(Compiled, ThemeCtx)> {
     let wasm = fs::read(entry.binary_path()?)?;
 
     let module = match cache.iter().find(|compiled| compiled.wasm == wasm) {

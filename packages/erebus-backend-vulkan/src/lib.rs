@@ -17,7 +17,7 @@ use std::{
     sync::{LazyLock, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use erebus_engine::PrimitiveKind;
+use erebus_runtime::PrimitiveKind;
 
 use fxhash::FxHashMap;
 use vk::{

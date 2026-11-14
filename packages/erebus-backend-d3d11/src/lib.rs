@@ -10,7 +10,7 @@ use std::{
     collections::HashMap, ffi::{CStr, c_void}, sync::{LazyLock, OnceLock},
 };
 
-use erebus_engine::{ThemeCtx, ThemeModule};
+use erebus_runtime::{ThemeCtx, ThemeModule};
 use windows_sys::{
     Win32::{
         Foundation::{E_FAIL, FARPROC, HMODULE},
