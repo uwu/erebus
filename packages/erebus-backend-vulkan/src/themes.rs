@@ -1,4 +1,8 @@
-//! Running themes.
+//! glue between erebus-runtime and erebus-ipc, where we load themes from disk
+//! in response to sync packets from the frontend
+//! 
+//! TODO(tropicaaal): this is currently duplicated across backends almost verbatim,
+//!                   it might be worth moving to some shared crate, idk where it'd go tho
 
 use std::{
     collections::HashMap,

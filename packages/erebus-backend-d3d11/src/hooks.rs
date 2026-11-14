@@ -9,13 +9,13 @@ use crate::{
         D3D11_RESOURCE_MISC_BUFFER_STRUCTURED, D3D11_USAGE_DYNAMIC,
     },
     shadow::{ShadowBuf, is_primitive_stride},
+    themes,
     vtable::{
-        Originals, TrackedShadow, VT_BUFFER_GET_DESC, VT_CTX_MAP, VT_CTX_UNMAP, VT_RES_GET_TYPE,
+        self, Originals, TrackedShadow, VT_BUFFER_GET_DESC, VT_CTX_MAP, VT_CTX_UNMAP,
+        VT_RES_GET_TYPE, originals_for, tracked,
     },
 };
 use windows_sys::{Win32::Foundation::E_FAIL, core::HRESULT};
-
-use crate::vtable::{self, originals_for, tracked};
 
 /// runs after D3D11CreateDevice/D3D11CreateDeviceAndSwapChain whenever a new device is created.
 ///
@@ -25,20 +25,13 @@ pub unsafe fn device_create(_device: *mut core::ffi::c_void, context: *mut core:
         return;
     }
 
+    themes::start(); // compile themes for the first time
+
     let vtable = unsafe {
         *(context as *const *mut *const c_void) // my head hurts
     };
     let mut guard = tracked();
     let state = guard.as_mut().unwrap();
-
-    // Try to instantiate the theme, if we can't do that then we don't
-    // track this device at all.
-    if state.theme.is_none() {
-        let Some(ctx) = crate::new_theme_ctx() else {
-            return;
-        };
-        state.theme = Some(ctx);
-    }
 
     let hash_map::Entry::Vacant(entry) = state.originals.entry(vtable.addr()) else {
         return;
@@ -90,12 +83,12 @@ unsafe extern "system" fn Map(
         };
 
         let result = (original.map)(vptr, resource, subresource, map_type, map_flags, mapped);
-        if result < 0 || (*mapped).pData.is_null() {
-            return result;
-        }
         let Some((byte_width, stride)) = layout else {
             return result;
         };
+        if result < 0 || (*mapped).pData.is_null() || themes::active_themes().is_empty() {
+            return result;
+        }
 
         let mapping_addr = (*mapped).pData.cast::<u8>();
         let mut guard = tracked();
@@ -148,16 +141,14 @@ unsafe extern "system" fn Unmap(this: *mut c_void, resource: *mut c_void, subres
         let mut guard = tracked();
         let state = guard.as_mut().unwrap();
 
-        if let (Some(shadow), Some(theme)) = (
-            state.shadows.get_mut(&(resource as usize)),
-            state.theme.as_mut(),
-        ) {
-            if !shadow.real_mapping_addr.is_null() {
-                let real = std::mem::replace(&mut shadow.real_mapping_addr, core::ptr::null_mut());
-                let stride = shadow.stride;
+        if let Some(shadow) = state.shadows.get_mut(&(resource as usize))
+            && !shadow.real_mapping_addr.is_null()
+        {
+            let real = std::mem::replace(&mut shadow.real_mapping_addr, core::ptr::null_mut());
+            let stride = shadow.stride;
 
-                _ = unsafe { shadow.buffer.flush(stride, theme, real) };
-            }
+            let mut active = themes::active_themes();
+            _ = unsafe { shadow.buffer.flush(stride, &mut active, real) };
         }
     }
 

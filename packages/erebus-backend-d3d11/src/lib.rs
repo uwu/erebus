@@ -4,13 +4,14 @@
 pub mod d3d11;
 pub mod hooks;
 pub mod shadow;
+mod themes;
 pub mod vtable;
 
 use std::{
-    collections::HashMap, ffi::{CStr, c_void}, sync::{LazyLock, OnceLock},
+    ffi::{CStr, c_void},
+    sync::OnceLock,
 };
 
-use erebus_runtime::{ThemeCtx, ThemeModule};
 use windows_sys::{
     Win32::{
         Foundation::{E_FAIL, FARPROC, HMODULE},
@@ -24,37 +25,6 @@ use windows_sys::{
 
 /// stores HMODULE cast to usize because rust doesn't like raw pointers in statics
 static ORIGINAL_D3D11: OnceLock<usize> = OnceLock::new();
-
-/// This is the compiled theme.
-static THEME_MODULE: LazyLock<Option<ThemeModule>> = LazyLock::new(|| {
-    let path = std::env::var_os("EREBUS_THEME")?;
-
-    match ThemeModule::from_file(&path) {
-        Ok(module) => Some(module),
-        Err(err) => {
-            log::error!("failed to load theme {path:?}: {err}");
-            None
-        }
-    }
-});
-
-/// Instantiate the theme.
-fn new_theme_ctx() -> Option<ThemeCtx> {
-    let mut ctx = match THEME_MODULE.as_ref()?.instantiate() {
-        Ok(ctx) => ctx,
-        Err(err) => {
-            log::error!("failed to instantiate theme: {err}");
-            return None;
-        }
-    };
-
-    if let Err(err) = ctx.init(&HashMap::new()) {
-        log::error!("failed to initialize theme: {err}");
-        return None;
-    }
-
-    Some(ctx)
-}
 
 fn find_orig_proc(name: &CStr) -> FARPROC {
     // LoadLibrary from system32 so we don't load ourselves
@@ -94,6 +64,8 @@ pub unsafe extern "system" fn D3D11CreateDevice(
     pFeatureLevel: *mut u32,
     ppImmediateContext: *mut *mut c_void,
 ) -> HRESULT {
+    erebus_ipc::backend::init_logging();
+
     let Some(proc) = find_orig_proc(c"D3D11CreateDevice") else {
         return E_FAIL;
     };
@@ -149,6 +121,8 @@ pub unsafe extern "system" fn D3D11CreateDeviceAndSwapChain(
     pFeatureLevel: *mut u32,
     ppImmediateContext: *mut *mut c_void,
 ) -> HRESULT {
+    erebus_ipc::backend::init_logging();
+
     let Some(proc) = find_orig_proc(c"D3D11CreateDeviceAndSwapChain") else {
         return E_FAIL;
     };

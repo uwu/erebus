@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 erebus-engine = { workspace = true }
+erebus-ipc = { workspace = true }
 erebus-theme = { workspace = true }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",

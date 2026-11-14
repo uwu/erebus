@@ -15,7 +15,7 @@
 //!
 //! [write-combined]: https://en.wikipedia.org/wiki/Write_combining
 
-use erebus_runtime::ThemeCtx;
+use erebus_engine::{PrimitiveKind, ThemeCtx};
 use erebus_theme::primitives::{MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline};
 
 pub fn is_primitive_stride(stride: usize) -> bool {
@@ -48,8 +48,8 @@ impl ShadowBuf {
         }
     }
 
-    /// Commit buffer to mapped GPU memory.
-    pub unsafe fn flush(&mut self, stride: usize, theme: &mut ThemeCtx, dst: *mut u8) -> usize {
+    /// Apply themes then commit to mapped GPU memory.
+    pub unsafe fn flush(&mut self, stride: usize, themes: &mut [ThemeCtx], dst: *mut u8) -> usize {
         let used = written_len(
             unsafe { std::slice::from_raw_parts(self.data.as_ptr().cast(), self.len) },
             stride,
@@ -62,8 +62,12 @@ impl ShadowBuf {
         let bytes =
             unsafe { std::slice::from_raw_parts_mut(self.data.as_mut_ptr().cast::<u8>(), used) };
 
-        if is_primitive_stride(stride) {
-            // _ = theme.apply(bytes);
+        if is_primitive_stride(stride)
+            && let Some(kind) = PrimitiveKind::classify_bytes(bytes)
+        {
+            for theme in themes {
+                theme.apply(kind, bytes);
+            }
         }
 
         // SAFETY: caller guarantees that for dst, used <= len.
