@@ -1,0 +1,84 @@
+name: Backends
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "packages/erebus-backend/**"
+      - "packages/erebus-backend-vulkan/**"
+      - "packages/erebus-backend-d3d11/**"
+      - "packages/erebus-ipc/**"
+      - "packages/erebus-theme/**"
+      - "packages/test-theme/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "erebus_vk.json"
+      - ".github/workflows/backends.yml"
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vulkan:
+    name: erebus-backend-vulkan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        run: rustup toolchain install && rustup component add clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-vulkan --all-targets
+
+      - name: Test
+        run: cargo test --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-vulkan
+
+      - name: Build release
+        run: cargo build --locked --release -p erebus-backend-vulkan
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: erebus-vulkan-linux-x86_64
+          path: |
+            target/release/liberebus_vulkan.so
+            erebus_vk.json
+          retention-days: 14
+
+  d3d11:
+    name: erebus-backend-d3d11
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install
+          rustup component add clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-d3d11 --all-targets
+
+      - name: Test
+        run: cargo test --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-d3d11
+
+      - name: Build release
+        run: cargo build --locked --release -p erebus-backend-d3d11
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: erebus-d3d11-windows-x86_64
+          path: target/release/d3d11.dll
+          retention-days: 14
