@@ -2,9 +2,7 @@
 pub mod abi;
 pub mod primitives;
 
-use primitives::{
-    MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline,
-};
+use primitives::{MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline};
 pub mod settings;
 
 pub use semver::Version;
@@ -43,7 +41,7 @@ pub struct Manifest {
 }
 
 /// Owned version of [`Manifest`] that can be deserialized.
-/// 
+///
 /// [`Manifest`] must be constructable in const-contexts which means we're forced
 /// to use static slices and whatnot rather than Vec/String. This version of the type
 /// is one with owned variants of those fields so it can support serde::Deserialize

@@ -2,7 +2,7 @@
 
 use std::{rc::Rc, time::SystemTime};
 
-use erebus_frontend::{ipc::Event, apps::BackendInstance};
+use erebus_frontend::{apps::BackendInstance, ipc::Event};
 
 use super::app::{App, Selection};
 

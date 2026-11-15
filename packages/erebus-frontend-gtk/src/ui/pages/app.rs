@@ -3,7 +3,7 @@
 use std::{rc::Rc, time::UNIX_EPOCH};
 
 use adw::prelude::*;
-use erebus_frontend::{library::ThemeInfo, apps::BackendInstance, i18n};
+use erebus_frontend::{apps::BackendInstance, i18n, library::ThemeInfo};
 use erebus_ipc::config::ThemeEntry;
 use gtk::glib;
 

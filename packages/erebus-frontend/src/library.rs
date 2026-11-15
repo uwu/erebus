@@ -14,7 +14,7 @@ use erebus_theme::{OwnedManifest, settings::OwnedSettingsField};
 pub struct Library {
     pub config_store: ConfigStore,
     /// keyed by theme name
-    /// 
+    ///
     /// TODO: probably don't key by theme name in the long run
     pub manifests: HashMap<String, Result<OwnedManifest, String>>,
 }

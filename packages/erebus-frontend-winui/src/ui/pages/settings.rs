@@ -95,7 +95,10 @@ pub fn setting_row(
         }
     };
 
-    widgets::row(widgets::title_and_subtitle(&field.label, &field.description), control)
+    widgets::row(
+        widgets::title_and_subtitle(&field.label, &field.description),
+        control,
+    )
 }
 
 fn to_color(rgba: Rgba) -> Color {

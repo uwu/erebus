@@ -93,9 +93,10 @@ impl Erebus {
                 "no-apps",
                 NavigationViewItem::new().selects_on_invoked(false).slot(
                     NavigationViewItemSlot::Content,
-                    Border::new()
-                        .opacity(0.7)
-                        .content(two_line_content_nowrap("No apps yet", "Start one with erebus to see it here")),
+                    Border::new().opacity(0.7).content(two_line_content_nowrap(
+                        "No apps yet",
+                        "Start one with erebus to see it here",
+                    )),
                 ),
             ));
         }
