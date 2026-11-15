@@ -1,15 +1,17 @@
-use std::rc::Rc;
+//! Application page
+
+use std::{rc::Rc, time::UNIX_EPOCH};
 
 use adw::prelude::*;
+use erebus_frontend::{library::ThemeInfo, apps::BackendInstance, i18n};
 use erebus_ipc::config::ThemeEntry;
+use gtk::glib;
 
-use super::{ThemeInfo, settings::setting_row};
+use super::settings::setting_row;
 use crate::{
     logs,
-    runtime::BackendInstance,
     ui::{
         app::App,
-        format,
         widgets::{MenuItem, menu, page},
     },
 };
@@ -25,7 +27,7 @@ impl App {
         }
 
         let library = self.library.borrow();
-        let description = if library.store.themes.is_empty() {
+        let description = if library.config_store.themes.is_empty() {
             "Themes you add to your Theme Library will show up here."
         } else {
             "Themes are applied in the order of your library."
@@ -36,9 +38,8 @@ impl App {
             .description(description)
             .build();
 
-        for entry in &library.store.themes {
-            let info = ThemeInfo::new(entry, library.manifests.get(&entry.id));
-            themes.add(&self.app_theme_row(process, entry, info));
+        for entry in &library.config_store.themes {
+            themes.add(&self.app_theme_row(process, entry, library.theme_info(entry)));
         }
 
         content.add(&themes);
@@ -47,7 +48,7 @@ impl App {
 
     fn app_header(self: &Rc<Self>, process: &str, instances: usize) -> adw::HeaderBar {
         let header = adw::HeaderBar::builder()
-            .title_widget(&adw::WindowTitle::new(process, &format::status(instances)))
+            .title_widget(&adw::WindowTitle::new(process, &i18n::status(instances)))
             .build();
 
         let (app, name) = (self.clone(), process.to_owned());
@@ -149,11 +150,13 @@ fn processes_group(instances: &[BackendInstance]) -> adw::PreferencesGroup {
 
     for instance in instances {
         let mut subtitle = format!("{} (protocol v{})", instance.backend, instance.version);
-        if let Some(time) = instance
+        let time = instance
             .connected_at
-            .as_ref()
-            .and_then(|time| time.format("%H:%M:%S").ok())
-        {
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .and_then(|since| glib::DateTime::from_unix_local(since.as_secs() as i64).ok())
+            .and_then(|time| time.format("%H:%M:%S").ok());
+        if let Some(time) = time {
             subtitle.push_str(&format!(" connected at {time}"));
         }
 

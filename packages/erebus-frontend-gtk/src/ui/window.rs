@@ -86,7 +86,7 @@ fn show_about(parent: &adw::ApplicationWindow) {
     let repo = "https://github.com/uwu/erebus";
 
     adw::AboutDialog::builder()
-        .application_name("erebus")
+        .application_name("erebus-frontend-gtk")
         .comments("Manage themes for GPUI apps running with erebus")
         .version(env!("CARGO_PKG_VERSION"))
         .developer_name("uwu.network")

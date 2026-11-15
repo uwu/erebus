@@ -15,7 +15,7 @@
 //!
 //! [write-combined]: https://en.wikipedia.org/wiki/Write_combining
 
-use erebus_engine::{PrimitiveKind, ThemeCtx};
+use erebus_backend::{PrimitiveKind, ThemeCtx};
 use erebus_theme::primitives::{MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline};
 
 pub fn is_primitive_stride(stride: usize) -> bool {

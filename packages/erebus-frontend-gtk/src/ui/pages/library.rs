@@ -3,13 +3,15 @@
 use std::{cell::Cell, rc::Rc};
 
 use adw::prelude::*;
+use erebus_frontend::{
+    library::{ThemeInfo},
+    i18n,
+};
 use erebus_ipc::config::ThemeEntry;
 use gtk::{gdk, glib};
 
-use super::ThemeInfo;
 use crate::ui::{
     app::App,
-    format,
     widgets::{menu, page, preferences},
 };
 
@@ -28,15 +30,10 @@ impl App {
         let rows: Vec<LibraryRow> = {
             let library = self.library.borrow();
             library
-                .store
+                .config_store
                 .themes
                 .iter()
-                .map(|entry| {
-                    self.library_row(
-                        entry,
-                        &ThemeInfo::new(entry, library.manifests.get(&entry.id)),
-                    )
-                })
+                .map(|entry| self.library_row(entry, &library.theme_info(entry)))
                 .collect()
         };
 
@@ -54,7 +51,7 @@ impl App {
         let header = adw::HeaderBar::builder()
             .title_widget(&adw::WindowTitle::new(
                 "Theme Library",
-                &format::theme_count(self.library.borrow().store.themes.len()),
+                &i18n::theme_count(self.library.borrow().config_store.themes.len()),
             ))
             .build();
 
@@ -96,10 +93,8 @@ impl App {
 
         adw::StatusPage::builder()
             .icon_name("view-grid-symbolic")
-            .title("No Themes")
-            .description(
-                "Add or drop a compiled theme file (.wasm) here, then enable it for specific apps.",
-            )
+            .title("Your Library Is Empty")
+            .description("Add a theme file (.wasm), or drop one anywhere on this page.")
             .child(&add)
             .build()
     }
@@ -136,14 +131,16 @@ impl App {
         let filter = {
             let results = results.clone();
             move |query: &str| {
-                let terms: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+                // positions in a filtered list are ambiguous, so only reorder unfiltered
+                let reorderable = query.trim().is_empty();
 
                 let mut any = false;
                 for row in &rows {
-                    let visible = terms.iter().all(|term| row.haystack.contains(term));
+                    let visible = query
+                        .split_whitespace()
+                        .all(|term| row.haystack.contains(&term.to_lowercase()));
                     row.row.set_visible(visible);
-                    // positions in a filtered list are ambiguous, so only reorder unfiltered
-                    row.handle.set_visible(terms.is_empty());
+                    row.handle.set_visible(reorderable);
                     any |= visible;
                 }
 
@@ -287,11 +284,7 @@ impl App {
         self.make_reorderable(&row, &entry.id);
 
         LibraryRow {
-            haystack: format!(
-                "{} {} {} {}",
-                info.title, info.subtitle, info.description, entry.id
-            )
-            .to_lowercase(),
+            haystack: info.search_text(),
             row: row.upcast(),
             handle: handle.upcast(),
         }

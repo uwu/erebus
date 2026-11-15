@@ -1,8 +1,5 @@
-mod library;
 mod logs;
-mod runtime;
 mod ui;
-mod watcher;
 
 use adw::prelude::*;
 

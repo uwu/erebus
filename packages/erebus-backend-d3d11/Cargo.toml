@@ -8,8 +8,7 @@ name = "d3d11"
 crate-type = ["cdylib"]
 
 [dependencies]
-erebus-engine = { workspace = true }
-erebus-ipc = { workspace = true }
+erebus-backend = { workspace = true }
 erebus-theme = { workspace = true }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
@@ -24,6 +23,3 @@ log = "0.4"
 
 [build-dependencies]
 goblin = "0.9"
-
-[profile.release]
-panic = "unwind"

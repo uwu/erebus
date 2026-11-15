@@ -1,0 +1,11 @@
+[package]
+name = "erebus-frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+erebus-backend = { workspace = true }
+erebus-ipc = { workspace = true }
+erebus-theme = { workspace = true }
+notify-debouncer-mini = "0.7"
+interprocess = "2.4"

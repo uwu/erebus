@@ -1,6 +1,5 @@
 use std::ops::RangeInclusive;
 
-
 /// Protocol versions this build supports. This covers the on-disk [`store`] format too.
 pub const SUPPORTED_VERSIONS: RangeInclusive<u32> = 1..=1;
 

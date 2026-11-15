@@ -3,6 +3,7 @@
 use std::cell::Cell;
 
 use adw::prelude::*;
+use erebus_frontend::apps::LogStorage;
 use erebus_ipc::protocol::LogRecord;
 use gtk::glib;
 
@@ -24,72 +25,93 @@ fn label(level: log::Level) -> &'static str {
     }
 }
 
-/// Each line is tagged with level name so that hiding a tag filters levels out.
-pub fn new_buffer() -> gtk::TextBuffer {
-    let buffer = gtk::TextBuffer::new(None);
-    for level in ALL_LEVELS {
-        buffer.create_tag(Some(level.as_str()), &[]);
-    }
+/// newtype over TextBuffer so we can implement LogStorage
+#[derive(Clone)]
+pub struct LogBuffer(pub gtk::TextBuffer);
 
-    let tags = buffer.tag_table();
-    let colors = [
-        (log::Level::Error, "#e01b24"),
-        (log::Level::Warn, "#c64600"),
-    ];
-    for (level, color) in colors {
-        if let Some(tag) = tags.lookup(level.as_str()) {
-            tag.set_foreground(Some(color));
-        }
-    }
+impl LogStorage for LogBuffer {
+    fn push(&self, pid: u32, record: &LogRecord) {
+        let buffer = &self.0;
 
-    // created last so it takes priority over the level colors
-    buffer.create_tag(Some("dim"), &[("foreground", &"#77767b")]);
-    buffer
+        let time = glib::DateTime::from_unix_local((record.timestamp / 1000) as i64)
+            .and_then(|time| time.format("%H:%M:%S"))
+            .map_or_else(|_| String::new(), |time| time.to_string());
+        let millis = record.timestamp % 1000;
+
+        let level = record.level.as_str();
+        let start = buffer.end_iter().offset();
+
+        let mut end = buffer.end_iter();
+        buffer.insert_with_tags_by_name(
+            &mut end,
+            &format!("{time}.{millis:03} [{pid}] "),
+            &["dim"],
+        );
+        buffer.insert(&mut end, &format!("{level:<5} "));
+        buffer.insert_with_tags_by_name(&mut end, &format!("{}: ", record.target), &["dim"]);
+        buffer.insert(&mut end, &format!("{}\n", record.message));
+
+        buffer.apply_tag_by_name(level, &buffer.iter_at_offset(start), &buffer.end_iter());
+    }
 }
 
-pub fn append(buffer: &gtk::TextBuffer, pid: u32, record: &LogRecord) {
-    let time = glib::DateTime::from_unix_local((record.timestamp / 1000) as i64)
-        .and_then(|time| time.format("%H:%M:%S"))
-        .map_or_else(|_| String::new(), |time| time.to_string());
-    let millis = record.timestamp % 1000;
+impl Default for LogBuffer {
+    fn default() -> Self {
+        Self({
+            let buffer = gtk::TextBuffer::new(None);
+            for level in ALL_LEVELS {
+                buffer.create_tag(Some(level.as_str()), &[]);
+            }
 
-    let level = record.level.as_str();
-    let start = buffer.end_iter().offset();
+            let tags = buffer.tag_table();
+            let colors = [
+                (log::Level::Error, "#e01b24"),
+                (log::Level::Warn, "#c64600"),
+            ];
+            for (level, color) in colors {
+                if let Some(tag) = tags.lookup(level.as_str()) {
+                    tag.set_foreground(Some(color));
+                }
+            }
 
-    let mut end = buffer.end_iter();
-    buffer.insert_with_tags_by_name(&mut end, &format!("{time}.{millis:03} [{pid}] "), &["dim"]);
-    buffer.insert(&mut end, &format!("{level:<5} "));
-    buffer.insert_with_tags_by_name(&mut end, &format!("{}: ", record.target), &["dim"]);
-    buffer.insert(&mut end, &format!("{}\n", record.message));
-
-    buffer.apply_tag_by_name(level, &buffer.iter_at_offset(start), &buffer.end_iter());
-}
-
-fn max_level(buffer: &gtk::TextBuffer) -> log::Level {
-    let tags = buffer.tag_table();
-    ALL_LEVELS
-        .into_iter()
-        .rev()
-        .find(|level| {
-            tags.lookup(level.as_str())
-                .is_some_and(|tag| !tag.is_invisible())
+            // created last so it takes priority over the level colors
+            buffer.create_tag(Some("dim"), &[("foreground", &"#77767b")]);
+            buffer
         })
-        .unwrap_or(log::Level::Error)
+    }
 }
 
-fn set_max_level(buffer: &gtk::TextBuffer, max: log::Level) {
-    let tags = buffer.tag_table();
-    for level in ALL_LEVELS {
-        if let Some(tag) = tags.lookup(level.as_str()) {
-            tag.set_invisible(level > max);
+impl LogBuffer {
+    fn max_level(&self) -> log::Level {
+        let buffer = &self.0;
+
+        let tags = buffer.tag_table();
+        ALL_LEVELS
+            .into_iter()
+            .rev()
+            .find(|level| {
+                tags.lookup(level.as_str())
+                    .is_some_and(|tag| !tag.is_invisible())
+            })
+            .unwrap_or(log::Level::Error)
+    }
+
+    fn set_max_level(&self, max: log::Level) {
+        let buffer = &self.0;
+
+        let tags = buffer.tag_table();
+        for level in ALL_LEVELS {
+            if let Some(tag) = tags.lookup(level.as_str()) {
+                tag.set_invisible(level > max);
+            }
         }
     }
 }
 
 /// shows `buffer` in a new window that follows new records as they come in.
-pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &gtk::TextBuffer) {
+pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &LogBuffer) {
     let view = gtk::TextView::builder()
-        .buffer(buffer)
+        .buffer(&buffer.0)
         .editable(false)
         .cursor_visible(false)
         .monospace(true)
@@ -104,13 +126,15 @@ pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &gtk::Text
         .model(&gtk::StringList::new(&ALL_LEVELS.map(label)))
         .tooltip_text("Most Verbose Level Shown")
         .build();
-    let selected = ALL_LEVELS.iter().position(|level| *level == max_level(buffer));
+    let selected = ALL_LEVELS
+        .iter()
+        .position(|level| *level == buffer.max_level());
     filter.set_selected(selected.unwrap_or(ALL_LEVELS.len() - 1) as u32);
     filter.connect_selected_notify({
         let buffer = buffer.clone();
         move |filter| {
             if let Some(level) = ALL_LEVELS.get(filter.selected() as usize) {
-                set_max_level(&buffer, *level);
+                buffer.set_max_level(*level);
             }
         }
     });
@@ -127,7 +151,7 @@ pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &gtk::Text
         .build();
     clear.connect_clicked({
         let buffer = buffer.clone();
-        move |_| buffer.set_text("")
+        move |_| buffer.0.set_text("")
     });
     header.pack_end(&clear);
 
@@ -148,10 +172,10 @@ pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &gtk::Text
         .content(&toolbar)
         .build();
 
-    let end = buffer.create_mark(None, &buffer.end_iter(), false);
+    let end = buffer.0.create_mark(None, &buffer.0.end_iter(), false);
     view.scroll_to_mark(&end, 0.0, false, 0.0, 1.0);
 
-    let follow = Cell::new(Some(buffer.connect_changed({
+    let follow = Cell::new(Some(buffer.0.connect_changed({
         let (view, end) = (view.clone(), end.clone());
         move |_| view.scroll_to_mark(&end, 0.0, false, 0.0, 1.0)
     })));
@@ -160,9 +184,9 @@ pub fn present(parent: &impl IsA<gtk::Window>, process: &str, buffer: &gtk::Text
         let buffer = buffer.clone();
         move |_| {
             if let Some(follow) = follow.take() {
-                buffer.disconnect(follow);
+                buffer.0.disconnect(follow);
             }
-            buffer.delete_mark(&end);
+            buffer.0.delete_mark(&end);
             glib::Propagation::Proceed
         }
     });

@@ -3,11 +3,11 @@
 use std::{path::PathBuf, rc::Rc};
 
 use adw::prelude::*;
+use erebus_frontend::{library::Library, watcher};
 use erebus_theme::settings::SettingValue;
 use gtk::gio;
 
 use super::app::{App, Selection};
-use crate::{library::Library, watcher};
 
 impl App {
     //
@@ -15,7 +15,7 @@ impl App {
     //
 
     pub fn save(&self) -> bool {
-        match self.library.borrow().store.save() {
+        match self.library.borrow().config_store.save() {
             Ok(()) => true,
             Err(err) => {
                 self.toast(&format!("Couldn't save: {err}"));
@@ -62,7 +62,7 @@ impl App {
 
     /// Drops everything stored for an app that isn't running.
     pub fn forget_app(self: &Rc<Self>, process: &str) {
-        self.library.borrow_mut().store.apps.remove(process);
+        self.library.borrow_mut().config_store.apps.remove(process);
         self.runtime.borrow_mut().forget(process);
         self.save();
 
@@ -102,20 +102,9 @@ impl App {
 
     /// Adds theme binaries to the library, skipping anything that isn't a `.wasm` file.
     pub fn install_themes(self: &Rc<Self>, paths: &[PathBuf]) {
-        let mut installed = false;
-
-        for path in paths {
-            let name = path.file_name().unwrap_or_default().to_string_lossy();
-            if path.extension().is_none_or(|extension| extension != "wasm") {
-                self.toast(&format!("Skipped {name}, which isn't a .wasm theme"));
-                continue;
-            }
-
-            let result = self.library.borrow_mut().install(path);
-            match result {
-                Ok(()) => installed = true,
-                Err(err) => self.toast(&format!("Couldn't add {name}: {err}")),
-            }
+        let (installed, problems) = self.library.borrow_mut().install_files(paths);
+        for problem in problems {
+            self.toast(&problem);
         }
 
         if installed {
@@ -136,7 +125,7 @@ impl App {
         let dialog = adw::AlertDialog::new(
             Some("Remove Theme?"),
             Some(&format!(
-                "“{name}” will be removed from the library, along with its settings in every app."
+                "\"{name}\" will be removed from the library, along with its settings in every app."
             )),
         );
         dialog.add_responses(&[("cancel", "Cancel"), ("remove", "Remove")]);
@@ -215,17 +204,13 @@ impl App {
 
     /// Reinstalls every theme whose source is one of `paths` and has changed.
     pub fn reload_sources(self: &Rc<Self>, paths: &[PathBuf]) {
-        let sources = self.library.borrow().outdated_sources(paths);
-        if sources.is_empty() {
+        let reloaded = self.library.borrow_mut().reinstall_changed(paths);
+        if reloaded.is_empty() {
             return;
         }
 
-        for source in &sources {
-            let installed = self.library.borrow_mut().install(source);
-            match installed {
-                Ok(()) => self.toast(&format!("Reloaded {}", source.display())),
-                Err(err) => self.toast(&format!("Couldn't reload {}: {err}", source.display())),
-            }
+        for message in reloaded {
+            self.toast(message.as_ref().unwrap_or_else(|err| err));
         }
 
         self.library_changed();
@@ -233,10 +218,11 @@ impl App {
 
     /// Replaces the watcher with one for the library's current theme sources.
     pub fn watch(&self) {
-        let watcher = watcher::watch_sources(
-            &self.library.borrow().store.themes,
-            self.on_sources_changed.clone(),
-        );
+        let sender = self.on_sources_changed.clone();
+        let watcher =
+            watcher::watch_sources(&self.library.borrow().config_store.themes, move |paths| {
+                let _ = sender.send_blocking(paths);
+            });
 
         match watcher {
             Ok(watcher) => *self.watcher.borrow_mut() = Some(watcher),

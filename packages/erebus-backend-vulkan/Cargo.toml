@@ -8,9 +8,7 @@ name = "erebus_vulkan"
 crate-type = ["cdylib"]
 
 [dependencies]
-erebus-primitives = { workspace = true }
-erebus-engine = { workspace = true }
+erebus-backend = { workspace = true }
 fxhash = "0.2.1"
 log = "0.4"
-erebus-ipc = { workspace = true }
 erebus-theme = { workspace = true }

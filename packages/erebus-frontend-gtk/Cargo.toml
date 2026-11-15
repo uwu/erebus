@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-erebus-engine = { workspace = true }
+erebus-frontend = { path = "../erebus-frontend" }
 erebus-ipc = { workspace = true }
 erebus-theme = { workspace = true }
-notify-debouncer-mini = "0.7"
 async-channel = "2"
 log = { workspace = true }
 gtk = { package = "gtk4", version = "0.11", features = ["v4_10"] }

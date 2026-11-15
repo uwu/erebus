@@ -4,7 +4,6 @@
 pub mod d3d11;
 pub mod hooks;
 pub mod shadow;
-mod themes;
 pub mod vtable;
 
 use std::{
@@ -64,7 +63,7 @@ pub unsafe extern "system" fn D3D11CreateDevice(
     pFeatureLevel: *mut u32,
     ppImmediateContext: *mut *mut c_void,
 ) -> HRESULT {
-    erebus_ipc::backend::init_logging();
+    erebus_backend::ipc::init_logging();
 
     let Some(proc) = find_orig_proc(c"D3D11CreateDevice") else {
         return E_FAIL;
@@ -121,7 +120,7 @@ pub unsafe extern "system" fn D3D11CreateDeviceAndSwapChain(
     pFeatureLevel: *mut u32,
     ppImmediateContext: *mut *mut c_void,
 ) -> HRESULT {
-    erebus_ipc::backend::init_logging();
+    erebus_backend::ipc::init_logging();
 
     let Some(proc) = find_orig_proc(c"D3D11CreateDeviceAndSwapChain") else {
         return E_FAIL;

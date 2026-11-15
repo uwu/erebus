@@ -1,7 +1,6 @@
 //! Theme settings.
 
-use crate::primitives::Hsla;
-use erebus_primitives::Rgba;
+use crate::primitives::{Hsla, Rgba};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

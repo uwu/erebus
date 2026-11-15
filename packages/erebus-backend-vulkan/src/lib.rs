@@ -7,7 +7,6 @@
 #![allow(non_snake_case)]
 
 pub mod hooks;
-mod themes;
 pub mod vk;
 
 use std::{
@@ -17,7 +16,7 @@ use std::{
     sync::{LazyLock, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use erebus_runtime::PrimitiveKind;
+use erebus_backend::{PrimitiveKind, themes};
 
 use fxhash::FxHashMap;
 use vk::{

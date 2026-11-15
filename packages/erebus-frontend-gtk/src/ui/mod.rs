@@ -4,7 +4,6 @@
 mod actions;
 mod app;
 mod events;
-mod format;
 mod pages;
 mod sidebar;
 mod widgets;
@@ -13,11 +12,10 @@ mod window;
 use std::rc::Rc;
 
 use adw::prelude::*;
-use erebus_ipc::frontend::IpcFrontend;
+use erebus_frontend::{ipc::IpcFrontend, library::Library};
 use gtk::glib;
 
 use self::{app::App, window::Shell};
-use crate::library::Library;
 
 pub fn build(application: &adw::Application) {
     sidebar::install_css();

@@ -1,9 +1,8 @@
 //! Rows for the sidebar.
 
 use adw::prelude::*;
+use erebus_frontend::i18n;
 use gtk::gdk;
-
-use super::format;
 
 pub fn install_css() {
     let provider = gtk::CssProvider::new();
@@ -26,7 +25,7 @@ pub fn library_row(themes: usize) -> gtk::ListBoxRow {
     let content = two_line_content(
         "view-grid-symbolic",
         "Theme Library",
-        &format::theme_count(themes),
+        &i18n::theme_count(themes),
     );
     gtk::ListBoxRow::builder().child(&content).build()
 }
@@ -54,7 +53,7 @@ pub fn app_row(process: &str, instances: usize) -> gtk::ListBoxRow {
     let content = two_line_content(
         "application-x-executable-symbolic",
         process,
-        &format::status(instances),
+        &i18n::status(instances),
     );
     content.append(&dot);
 
@@ -69,7 +68,7 @@ pub fn no_apps_row() -> gtk::ListBoxRow {
             let content = row_content();
             content.append(
                 &gtk::Label::builder()
-                    .label("Apps show up here once they run with erebus")
+                    .label("No apps yet. Start one with erebus to see it here.")
                     .wrap(true)
                     .xalign(0.0)
                     .css_classes(["caption", "dim-label"])

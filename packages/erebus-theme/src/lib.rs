@@ -1,11 +1,8 @@
 #[doc(hidden)]
 pub mod abi;
+pub mod primitives;
 
-pub mod primitives {
-    pub use erebus_primitives::*;
-}
-
-use erebus_primitives::{
+use primitives::{
     MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline,
 };
 pub mod settings;

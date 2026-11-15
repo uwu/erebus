@@ -2,6 +2,8 @@
 
 use std::{collections::hash_map, ffi::c_void, mem::transmute};
 
+use erebus_backend::themes;
+
 use crate::{
     d3d11::{
         D3D11_BIND_SHADER_RESOURCE, D3D11_BUFFER_DESC, D3D11_CPU_ACCESS_WRITE,
@@ -9,7 +11,6 @@ use crate::{
         D3D11_RESOURCE_MISC_BUFFER_STRUCTURED, D3D11_USAGE_DYNAMIC,
     },
     shadow::{ShadowBuf, is_primitive_stride},
-    themes,
     vtable::{
         self, Originals, TrackedShadow, VT_BUFFER_GET_DESC, VT_CTX_MAP, VT_CTX_UNMAP,
         VT_RES_GET_TYPE, originals_for, tracked,
@@ -25,7 +26,7 @@ pub unsafe fn device_create(_device: *mut core::ffi::c_void, context: *mut core:
         return;
     }
 
-    themes::start(); // compile themes for the first time
+    themes::start("d3d11"); // compile themes for the first time
 
     let vtable = unsafe {
         *(context as *const *mut *const c_void) // my head hurts

@@ -1,0 +1,12 @@
+[package]
+name = "erebus-backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+erebus-theme = { workspace = true }
+erebus-ipc = { workspace = true }
+postcard = { workspace = true }
+interprocess = "2.4"
+wasmtime = "50.0.1"
+log = "0.4"

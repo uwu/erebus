@@ -1,12 +1,10 @@
 //! event handling from IPC
 
-use std::rc::Rc;
+use std::{rc::Rc, time::SystemTime};
 
-use erebus_ipc::frontend::Event;
-use gtk::glib;
+use erebus_frontend::{ipc::Event, apps::BackendInstance};
 
 use super::app::{App, Selection};
-use crate::runtime::BackendInstance;
 
 impl App {
     pub fn handle_event(self: &Rc<Self>, event: Event) {
@@ -25,7 +23,7 @@ impl App {
                         pid,
                         backend,
                         version,
-                        connected_at: glib::DateTime::now_local().ok(),
+                        connected_at: SystemTime::now(),
                     },
                 );
 

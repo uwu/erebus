@@ -48,7 +48,7 @@ pub unsafe extern "system" fn vkNegotiateLoaderLayerInterfaceVersion(
         return VK_ERROR_INITIALIZATION_FAILED;
     }
 
-    erebus_ipc::backend::init_logging();
+    erebus_backend::ipc::init_logging();
 
     let negotiate = unsafe { &mut *pVersionStruct };
 
@@ -270,7 +270,7 @@ pub unsafe extern "system" fn vkCreateDevice(
 
             // before taking the registry's write lock: loading and compiling themes on first
             // use is slow and would stall every hook in the meantime.
-            themes::start();
+            themes::start("vulkan");
 
             devices_mut().insert(
                 DispatchKey::from_raw_handle(device),

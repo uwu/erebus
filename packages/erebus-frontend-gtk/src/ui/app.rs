@@ -8,10 +8,10 @@ use std::{
 };
 
 use adw::prelude::*;
-use erebus_ipc::frontend::IpcFrontend;
+use erebus_frontend::{ipc::IpcFrontend, library::Library, apps::Runtime, watcher::Watcher};
 
 use super::{sidebar, window::Shell};
-use crate::{library::Library, runtime::Runtime, watcher::Watcher};
+use crate::logs::LogBuffer;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Selection {
@@ -21,7 +21,7 @@ pub enum Selection {
 
 pub struct App {
     pub library: RefCell<Library>,
-    pub runtime: RefCell<Runtime>,
+    pub runtime: RefCell<Runtime<LogBuffer>>,
     pub ipc: Option<IpcFrontend>,
     pub watcher: RefCell<Option<Watcher>>,
     pub on_sources_changed: async_channel::Sender<Vec<PathBuf>>,
@@ -123,7 +123,7 @@ impl App {
             let library = self.library.borrow();
             let runtime = self.runtime.borrow();
             library
-                .store
+                .config_store
                 .apps
                 .keys()
                 .chain(runtime.running())
@@ -132,7 +132,7 @@ impl App {
         };
 
         let mut entries = vec![Selection::Library];
-        let themes = self.library.borrow().store.themes.len();
+        let themes = self.library.borrow().config_store.themes.len();
         self.sidebar.append(&sidebar::library_row(themes));
 
         for process in apps {
