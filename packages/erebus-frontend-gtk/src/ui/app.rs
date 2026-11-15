@@ -1,4 +1,4 @@
-//! The window's state, and navigating between its pages.
+//! Application state
 
 use std::{
     cell::RefCell,

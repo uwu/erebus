@@ -13,7 +13,9 @@ use erebus_theme::{OwnedManifest, settings::OwnedSettingsField};
 #[derive(Default)]
 pub struct Library {
     pub config_store: ConfigStore,
-    /// keyed by theme id. `Err` holds why the binary couldn't be read
+    /// keyed by theme name
+    /// 
+    /// TODO: probably don't key by theme name in the long run
     pub manifests: HashMap<String, Result<OwnedManifest, String>>,
 }
 
