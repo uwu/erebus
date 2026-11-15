@@ -1,6 +1,3 @@
-//! The main window: a sidebar with the theme library and every known app, and a page for
-//! whichever one is selected.
-
 mod actions;
 mod app;
 mod events;
