@@ -8,7 +8,7 @@ use std::{
 };
 
 use adw::prelude::*;
-use erebus_frontend::{ipc::IpcFrontend, library::Library, apps::Runtime, watcher::Watcher};
+use erebus_frontend::{apps::Runtime, ipc::IpcFrontend, library::Library, watcher::Watcher};
 
 use super::{sidebar, window::Shell};
 use crate::logs::LogBuffer;

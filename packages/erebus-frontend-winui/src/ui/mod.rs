@@ -6,7 +6,7 @@ pub(crate) mod widgets;
 
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
-use erebus_frontend::{ipc::IpcFrontend, library::Library, apps::Runtime, watcher::Watcher};
+use erebus_frontend::{apps::Runtime, ipc::IpcFrontend, library::Library, watcher::Watcher};
 use erebus_theme::settings::SettingValue;
 use windows_reactor::*;
 

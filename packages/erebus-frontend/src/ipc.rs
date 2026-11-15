@@ -1,5 +1,5 @@
 //! The frontend's side of the IPC connection.
-//! 
+//!
 //! In the connection, frontends are (unintuitively) a server every backend connects to.
 //! The frontend's job in the connection is to notify any relevant backends when changes
 //! to the config store have been made by the user in the UI.

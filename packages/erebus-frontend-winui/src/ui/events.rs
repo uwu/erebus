@@ -2,7 +2,7 @@
 
 use std::time::SystemTime;
 
-use erebus_frontend::{ipc::Event, apps::BackendInstance};
+use erebus_frontend::{apps::BackendInstance, ipc::Event};
 use windows_reactor::*;
 
 use super::Erebus;

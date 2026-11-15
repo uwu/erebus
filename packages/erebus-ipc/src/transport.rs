@@ -1,7 +1,4 @@
-
-use std::{
-    io::{self, Read, Write},
-};
+use std::io::{self, Read, Write};
 
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, Name, ToFsName, ToNsName};
 use serde::{Serialize, de::DeserializeOwned};

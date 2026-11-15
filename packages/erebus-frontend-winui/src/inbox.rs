@@ -44,7 +44,7 @@ impl Inbox {
     }
 
     /// Blocks until something arrives then returns everything in the queue.
-    /// 
+    ///
     /// Returns None if `cancel` gets cancelled first.
     pub fn wait(&self, cancel: &CancellationToken) -> Vec<ThreadEvent> {
         let receiver = self.receiver.lock().unwrap_or_else(PoisonError::into_inner);

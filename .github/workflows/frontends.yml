@@ -1,0 +1,89 @@
+name: Frontends
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - "packages/erebus-frontend/**"
+      - "packages/erebus-frontend-gtk/**"
+      - "packages/erebus-frontend-winui/**"
+      - "packages/erebus-backend/**"
+      - "packages/erebus-ipc/**"
+      - "packages/erebus-theme/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/frontends.yml"
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gtk:
+    name: erebus-frontend-gtk
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev
+
+      - name: Install Rust
+        run: rustup toolchain install && rustup component add clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-gtk --all-targets
+
+      - name: Test
+        run: cargo test --locked -p erebus-frontend -p erebus-frontend-gtk
+
+      - name: Build release
+        run: cargo build --locked --release -p erebus-frontend-gtk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: erebus-frontend-gtk-linux-x86_64
+          path: target/release/erebus-frontend-gtk
+          retention-days: 14
+
+  winui:
+    name: erebus-frontend-winui
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install
+          rustup component add clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-winui --all-targets
+
+      - name: Test
+        run: cargo test --locked -p erebus-frontend -p erebus-frontend-winui
+
+      - name: Build release
+        run: cargo build --locked --release -p erebus-frontend-winui
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: erebus-frontend-winui-windows-x86_64
+          path: target/release/erebus-frontend-winui.exe
+          retention-days: 14

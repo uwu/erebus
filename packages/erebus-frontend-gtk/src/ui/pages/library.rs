@@ -3,10 +3,7 @@
 use std::{cell::Cell, rc::Rc};
 
 use adw::prelude::*;
-use erebus_frontend::{
-    library::{ThemeInfo},
-    i18n,
-};
+use erebus_frontend::{i18n, library::ThemeInfo};
 use erebus_ipc::config::ThemeEntry;
 use gtk::{gdk, glib};
 

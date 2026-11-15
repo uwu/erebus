@@ -58,11 +58,7 @@ pub fn manifest<T: Theme>() -> u64 {
     (u64::from(ptr) << 32) | u64::from(len)
 }
 
-pub unsafe fn init<T: Theme>(
-    instance: &'static LocalKey<RefCell<Option<T>>>,
-    ptr: u32,
-    len: u32,
-) {
+pub unsafe fn init<T: Theme>(instance: &'static LocalKey<RefCell<Option<T>>>, ptr: u32, len: u32) {
     let bytes: &[u8] = if ptr == 0 || len == 0 {
         &[]
     } else {
@@ -74,7 +70,7 @@ pub unsafe fn init<T: Theme>(
     } else {
         match postcard::from_bytes::<HashMap<String, SettingValue>>(bytes) {
             Ok(values) => values,
-            Err(_) => return // might be worth returning a status code in the future
+            Err(_) => return, // might be worth returning a status code in the future
         }
     };
 
