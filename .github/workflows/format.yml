@@ -1,0 +1,25 @@
+name: Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        run: rustup toolchain install && rustup component add rustfmt
+      
+      - name: Check Formatting
+        run: cargo fmt --all --check
