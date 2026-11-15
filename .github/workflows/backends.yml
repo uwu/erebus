@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: erebus-vulkan-linux-x86_64
+          name: liberebus_vulkan.so
           path: |
             target/release/liberebus_vulkan.so
             erebus_vk.json
@@ -79,6 +79,6 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: erebus-d3d11-windows-x86_64
+          name: d3d11.dll
           path: target/release/d3d11.dll
           retention-days: 14
