@@ -1,7 +1,6 @@
 #[doc(hidden)]
 pub mod abi;
 pub mod primitives;
-pub mod primitives_phoenix;
 
 use primitives::{MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline};
 pub mod settings;
