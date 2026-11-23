@@ -15,7 +15,7 @@
 //!
 //! [write-combined]: https://en.wikipedia.org/wiki/Write_combining
 
-use erebus_backend::{PrimitiveKind, ThemeCtx};
+use erebus_backend::{PrimitiveKind, ThemeCtx, preserve_renderer_metadata};
 use erebus_theme::primitives::{
     MonochromeSprite, PolychromeSprite, Quad, Shadow, SubpixelSprite, Underline,
 };
@@ -92,52 +92,6 @@ impl ShadowBuf {
         bytes.fill(0);
 
         used
-    }
-}
-
-#[cfg(not(feature = "phoenix"))]
-fn preserve_renderer_metadata(
-    bytes: &mut [u8],
-    _kind: PrimitiveKind,
-    apply: impl FnOnce(&mut [u8]),
-) {
-    apply(bytes);
-}
-
-#[cfg(feature = "phoenix")]
-fn preserve_renderer_metadata(
-    bytes: &mut [u8],
-    kind: PrimitiveKind,
-    apply: impl FnOnce(&mut [u8]),
-) {
-    use erebus_theme::primitives::Background;
-    use std::mem::offset_of;
-    let (stride, offset) = match kind {
-        PrimitiveKind::Quad => (
-            size_of::<Quad>(),
-            offset_of!(Quad, background) + offset_of!(Background, pad),
-        ),
-        PrimitiveKind::Shadow => (size_of::<Shadow>(), offset_of!(Shadow, pad)),
-        PrimitiveKind::Underline => (size_of::<Underline>(), offset_of!(Underline, pad)),
-        PrimitiveKind::MonochromeSprite => (
-            size_of::<MonochromeSprite>(),
-            offset_of!(MonochromeSprite, pad),
-        ),
-        PrimitiveKind::SubpixelSprite => {
-            (size_of::<SubpixelSprite>(), offset_of!(SubpixelSprite, pad))
-        }
-        PrimitiveKind::PolychromeSprite => (
-            size_of::<PolychromeSprite>(),
-            offset_of!(PolychromeSprite, pad),
-        ),
-    };
-    let metadata: Vec<[u8; 4]> = bytes
-        .chunks_exact(stride)
-        .map(|item| item[offset..offset + 4].try_into().unwrap())
-        .collect();
-    apply(bytes);
-    for (item, original) in bytes.chunks_exact_mut(stride).zip(metadata) {
-        item[offset..offset + 4].copy_from_slice(&original);
     }
 }
 

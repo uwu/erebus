@@ -7,6 +7,9 @@ edition = "2024"
 name = "erebus_vulkan"
 crate-type = ["cdylib"]
 
+[features]
+phoenix = ["erebus-backend/phoenix"]
+
 [dependencies]
 erebus-backend = { workspace = true }
 fxhash = "0.2.1"

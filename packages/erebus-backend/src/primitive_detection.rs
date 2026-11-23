@@ -15,6 +15,13 @@ pub trait Validate: Copy + PartialEq {
     fn looks_valid(&self) -> bool;
 }
 
+/// Validates the `pad` field on scene primitives.
+/// 
+/// Phoenix shoves renderer metadata in here instead, so we shouldn't assume zero in that case.
+fn pad_looks_valid(pad: u32) -> bool {
+    cfg!(feature = "phoenix") || pad == 0
+}
+
 /// returns true if every value is a finite non-subnormal float within lo..=hi
 fn all_in_range(values: &[f32], lo: f32, hi: f32) -> bool {
     values
@@ -37,7 +44,7 @@ impl Validate for Quad {
 
 impl Validate for Underline {
     fn looks_valid(&self) -> bool {
-        self.pad == 0
+        pad_looks_valid(self.pad)
             && self.bounds.looks_valid()
             && self.content_mask.looks_valid()
             && self.color.looks_valid()
@@ -56,13 +63,13 @@ impl Validate for Shadow {
             && self.element_bounds.looks_valid()
             && self.element_corner_radii.looks_valid()
             && self.inset <= 1
-            && self.pad == 0
+            && pad_looks_valid(self.pad)
     }
 }
 
 impl Validate for MonochromeSprite {
     fn looks_valid(&self) -> bool {
-        self.pad == 0
+        pad_looks_valid(self.pad)
             && self.tile.looks_valid(AtlasTextureKind::MONOCHROME)
             && self.bounds.looks_valid()
             && self.content_mask.looks_valid()
@@ -73,7 +80,7 @@ impl Validate for MonochromeSprite {
 
 impl Validate for SubpixelSprite {
     fn looks_valid(&self) -> bool {
-        self.pad == 0
+        pad_looks_valid(self.pad)
             && self.tile.looks_valid(AtlasTextureKind::SUBPIXEL)
             && self.bounds.looks_valid()
             && self.content_mask.looks_valid()
@@ -90,7 +97,7 @@ impl Validate for PaddedBool32 {
 
 impl Validate for PolychromeSprite {
     fn looks_valid(&self) -> bool {
-        self.pad == 0
+        pad_looks_valid(self.pad)
             && self.tile.looks_valid(AtlasTextureKind::POLYCHROME)
             && self.grayscale.looks_valid()
             && all_in_range(&[self.opacity], 0.0, 1.0)
@@ -150,7 +157,7 @@ impl Validate for Background {
         self.tag.0 <= BackgroundTag::CHECKERBOARD.0
             && self.color_space.0 <= ColorSpace::OKLAB.0
             && self.solid.looks_valid()
-            && self.pad == 0
+            && pad_looks_valid(self.pad)
     }
 }
 
@@ -230,4 +237,52 @@ fn is_array_of<T: Validate>(bytes: &[u8]) -> bool {
     // SAFETY: `Instance` guarantees every bit pattern is a valid `T`.
     let (head, items, tail) = unsafe { bytes.align_to::<T>() };
     head.is_empty() && tail.is_empty() && !items.is_empty() && items.iter().all(T::looks_valid)
+}
+
+/// Phoenix keeps renderer metadata in the padding of each primitive, which themes mustn't
+/// touch, so it's put back after `apply`.
+#[cfg(feature = "phoenix")]
+pub fn preserve_renderer_metadata(
+    bytes: &mut [u8],
+    kind: PrimitiveKind,
+    apply: impl FnOnce(&mut [u8]),
+) {
+    use std::mem::offset_of;
+
+    let (stride, offset) = match kind {
+        PrimitiveKind::Quad => (
+            size_of::<Quad>(),
+            offset_of!(Quad, background) + offset_of!(Background, pad),
+        ),
+        PrimitiveKind::Shadow => (size_of::<Shadow>(), offset_of!(Shadow, pad)),
+        PrimitiveKind::Underline => (size_of::<Underline>(), offset_of!(Underline, pad)),
+        PrimitiveKind::MonochromeSprite => (
+            size_of::<MonochromeSprite>(),
+            offset_of!(MonochromeSprite, pad),
+        ),
+        PrimitiveKind::SubpixelSprite => {
+            (size_of::<SubpixelSprite>(), offset_of!(SubpixelSprite, pad))
+        }
+        PrimitiveKind::PolychromeSprite => (
+            size_of::<PolychromeSprite>(),
+            offset_of!(PolychromeSprite, pad),
+        ),
+    };
+    let metadata: Vec<[u8; 4]> = bytes
+        .chunks_exact(stride)
+        .map(|item| item[offset..offset + 4].try_into().unwrap())
+        .collect();
+    apply(bytes);
+    for (item, original) in bytes.chunks_exact_mut(stride).zip(metadata) {
+        item[offset..offset + 4].copy_from_slice(&original);
+    }
+}
+
+#[cfg(not(feature = "phoenix"))]
+pub fn preserve_renderer_metadata(
+    bytes: &mut [u8],
+    _kind: PrimitiveKind,
+    apply: impl FnOnce(&mut [u8]),
+) {
+    apply(bytes);
 }
