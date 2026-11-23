@@ -64,11 +64,26 @@ impl ShadowBuf {
         let bytes =
             unsafe { std::slice::from_raw_parts_mut(self.data.as_mut_ptr().cast::<u8>(), used) };
 
+        let kind = PrimitiveKind::classify_bytes(bytes);
         if is_primitive_stride(stride)
-            && let Some(kind) = PrimitiveKind::classify_bytes(bytes)
+            && let Some(kind) = kind
         {
+            static FIRST_PRIMITIVE: std::sync::Once = std::sync::Once::new();
+            FIRST_PRIMITIVE.call_once(|| {
+                log::info!(
+                    "applying {} theme(s) to {kind:?} upload ({} bytes, stride {stride})",
+                    themes.len(),
+                    bytes.len()
+                );
+            });
             for theme in themes {
-                theme.apply(kind, bytes);
+                preserve_renderer_metadata(bytes, kind, |bytes| {
+                    let changed = theme.apply(kind, bytes);
+                    static FIRST_CHANGE: std::sync::Once = std::sync::Once::new();
+                    if changed == Some(true) {
+                        FIRST_CHANGE.call_once(|| log::info!("theme changed a {kind:?} upload"));
+                    }
+                });
             }
         }
 
@@ -77,6 +92,52 @@ impl ShadowBuf {
         bytes.fill(0);
 
         used
+    }
+}
+
+#[cfg(not(feature = "phoenix"))]
+fn preserve_renderer_metadata(
+    bytes: &mut [u8],
+    _kind: PrimitiveKind,
+    apply: impl FnOnce(&mut [u8]),
+) {
+    apply(bytes);
+}
+
+#[cfg(feature = "phoenix")]
+fn preserve_renderer_metadata(
+    bytes: &mut [u8],
+    kind: PrimitiveKind,
+    apply: impl FnOnce(&mut [u8]),
+) {
+    use erebus_theme::primitives::Background;
+    use std::mem::offset_of;
+    let (stride, offset) = match kind {
+        PrimitiveKind::Quad => (
+            size_of::<Quad>(),
+            offset_of!(Quad, background) + offset_of!(Background, pad),
+        ),
+        PrimitiveKind::Shadow => (size_of::<Shadow>(), offset_of!(Shadow, pad)),
+        PrimitiveKind::Underline => (size_of::<Underline>(), offset_of!(Underline, pad)),
+        PrimitiveKind::MonochromeSprite => (
+            size_of::<MonochromeSprite>(),
+            offset_of!(MonochromeSprite, pad),
+        ),
+        PrimitiveKind::SubpixelSprite => {
+            (size_of::<SubpixelSprite>(), offset_of!(SubpixelSprite, pad))
+        }
+        PrimitiveKind::PolychromeSprite => (
+            size_of::<PolychromeSprite>(),
+            offset_of!(PolychromeSprite, pad),
+        ),
+    };
+    let metadata: Vec<[u8; 4]> = bytes
+        .chunks_exact(stride)
+        .map(|item| item[offset..offset + 4].try_into().unwrap())
+        .collect();
+    apply(bytes);
+    for (item, original) in bytes.chunks_exact_mut(stride).zip(metadata) {
+        item[offset..offset + 4].copy_from_slice(&original);
     }
 }
 

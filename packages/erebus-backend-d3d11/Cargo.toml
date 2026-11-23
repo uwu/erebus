@@ -7,6 +7,9 @@ edition = "2024"
 name = "d3d11"
 crate-type = ["cdylib"]
 
+[features]
+phoenix = ["erebus-backend/phoenix"]
+
 [dependencies]
 erebus-backend = { workspace = true }
 erebus-theme = { workspace = true }
@@ -20,6 +23,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 fxhash = "0.2.1"
 log = "0.4"
+minhook = "0.9"
 
 [build-dependencies]
 goblin = "0.9"
