@@ -1,5 +1,6 @@
 [workspace]
 members = ["packages/*"]
+exclude = ["packages/erebus-backend-d3d11"]
 resolver = "2"
 
 [workspace.dependencies]
