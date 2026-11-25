@@ -53,7 +53,7 @@ fn sync(cache: &mut Vec<Compiled>) {
     let mut compiled = Vec::new();
     let mut stack = Vec::new();
 
-    let app = store.apps.get(ipc::process_name());
+    let app = store.apps.get(ipc::app_id());
     let enabled = store.themes.iter().filter_map(|entry| {
         let theme = app?.themes.get(&entry.id).filter(|theme| theme.enabled)?;
         Some((entry, &theme.settings))

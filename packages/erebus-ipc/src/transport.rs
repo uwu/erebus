@@ -1,10 +1,17 @@
-use std::io::{self, Read, Write};
+use std::{
+    io::{self, Read, Write},
+    path::PathBuf,
+};
 
 use interprocess::local_socket::{GenericFilePath, GenericNamespaced, Name, ToFsName, ToNsName};
 use serde::{Serialize, de::DeserializeOwned};
 
+pub fn socket_dir() -> Option<PathBuf> {
+    dirs::runtime_dir().map(|dir| dir.join("erebus"))
+}
+
 pub fn socket_name() -> io::Result<Name<'static>> {
-    match dirs::runtime_dir() {
+    match socket_dir() {
         Some(dir) => dir.join("erebus.sock").to_fs_name::<GenericFilePath>(),
         None => "erebus".to_ns_name::<GenericNamespaced>(),
     }

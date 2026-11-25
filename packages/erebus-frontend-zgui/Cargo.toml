@@ -1,0 +1,22 @@
+[package]
+name = "erebus-frontend-zgui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+erebus-frontend = { workspace = true }
+erebus-ipc = { workspace = true }
+erebus-theme = { workspace = true }
+async-channel = "2"
+chrono = "0.4"
+log = { workspace = true }
+rfd = "0.17"
+zgui = { path = "../../../zgui/crates/zgui" }
+zgui-ui = { path = "../../../zgui/crates/zgui-ui" }
+zgui-ui-primitives = { path = "../../../zgui/crates/zgui-ui-primitives" }
+zgui-ui-icons = { path = "../../../zgui/crates/zgui-ui-icons" }
+zgui-ui-tokens = { path = "../../../zgui/crates/zgui-ui-tokens" }
+
+[[bin]]
+name = "erebus"
+path = "src/main.rs"

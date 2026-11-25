@@ -30,6 +30,6 @@ fn main() -> ExitCode {
     for name in forwarders {
         println!("    {name}=d3d11_orig.{name}");
     }
-
+    
     ExitCode::SUCCESS
 }

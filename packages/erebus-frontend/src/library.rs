@@ -61,6 +61,70 @@ impl Library {
         true
     }
 
+    /// Adds or updates an app a frontend injected, keeping its theme settings
+    /// if it's known already. Returns whether anything changed.
+    pub fn set_app(&mut self, app: &LibraryApp) -> bool {
+        let config = self.config_store.apps.entry(app.id.clone()).or_default();
+        let before = (
+            config.installed_app.clone(),
+            config.name.clone(),
+            config.icon.clone(),
+        );
+
+        config.installed_app = Some(app.installed_app.clone());
+        config.name = Some(app.name.clone());
+        config.icon = app.icon.clone();
+
+        before
+            != (
+                config.installed_app.clone(),
+                config.name.clone(),
+                config.icon.clone(),
+            )
+    }
+
+    /// Makes the apps a frontend injected match `injected`, every installed app that's
+    /// injected right now: missing ones are added, and ones that were uninjected some other
+    /// way are dropped. Returns whether anything changed.
+    pub fn sync_apps(&mut self, injected: &[LibraryApp]) -> bool {
+        let before = self.config_store.apps.len();
+        self.config_store.apps.retain(|id, config| {
+            config.installed_app.as_ref().is_none_or(|installed| {
+                injected
+                    .iter()
+                    .any(|app| app.id == *id && app.installed_app == *installed)
+            })
+        });
+        let mut changed = self.config_store.apps.len() != before;
+
+        for app in injected {
+            changed |= self.set_app(app);
+        }
+        changed
+    }
+
+    /// The installed app `process` was injected through, if a frontend injected it.
+    pub fn installed_app(&self, process: &str) -> Option<&str> {
+        self.config_store
+            .apps
+            .get(process)?
+            .installed_app
+            .as_deref()
+    }
+
+    /// What to call an app.
+    pub fn app_name<'a>(&'a self, process: &'a str) -> &'a str {
+        self.config_store
+            .apps
+            .get(process)
+            .and_then(|app| app.name.as_deref())
+            .unwrap_or(process)
+    }
+
+    pub fn app_icon(&self, process: &str) -> Option<&str> {
+        self.config_store.apps.get(process)?.icon.as_deref()
+    }
+
     pub fn app_theme(&self, process: &str, id: &str) -> Option<&AppTheme> {
         self.config_store.apps.get(process)?.themes.get(id)
     }
@@ -203,6 +267,17 @@ fn is_outdated(entry: &ThemeEntry) -> bool {
         (source, None) => source.is_some(),
         (None, _) => false,
     }
+}
+
+/// An app a frontend injected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryApp {
+    /// the ID it's configured under
+    pub id: String,
+    /// the ID of the installed app that was changed to inject it, like a desktop file ID
+    pub installed_app: String,
+    pub name: String,
+    pub icon: Option<String>,
 }
 
 /// What's shown about a theme wherever it's listed.

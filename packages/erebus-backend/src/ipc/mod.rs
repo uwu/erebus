@@ -14,6 +14,7 @@ use std::{
 use interprocess::local_socket::{Stream, traits::Stream as _};
 
 use erebus_ipc::{
+    config::{APP_ID_ENV, marked_app_id},
     protocol::{FrontendMessage, Handshake, HandshakeReply, SUPPORTED_VERSIONS},
     transport,
 };
@@ -21,17 +22,23 @@ use erebus_ipc::{
 /// how long to wait before trying to reach a frontend again
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 
-/// The name of the executable we're running in, which is what apps are keyed by in the
-/// config store.
-pub fn process_name() -> &'static str {
-    static NAME: LazyLock<String> = LazyLock::new(|| {
-        std::env::current_exe()
+/// The ID of the app we're running in, which is what apps are keyed by in the config
+/// store: whatever launched the app set [`APP_ID_ENV`], what a frontend left in the app's
+/// [`APP_ID_MARKER`](erebus_ipc::config::APP_ID_MARKER), or the name of the executable.
+pub fn app_id() -> &'static str {
+    static ID: LazyLock<String> = LazyLock::new(|| {
+        std::env::var(APP_ID_ENV)
             .ok()
-            .and_then(|path| Some(path.file_name()?.to_string_lossy().into_owned()))
+            .filter(|id| !id.is_empty())
+            .or_else(|| {
+                let exe = std::env::current_exe().ok()?;
+                marked_app_id(&exe)
+                    .or_else(|| Some(exe.file_name()?.to_string_lossy().into_owned()))
+            })
             .unwrap_or_default()
     });
 
-    &NAME
+    &ID
 }
 
 pub struct IpcBackend {
@@ -84,7 +91,7 @@ impl IpcBackend {
             &stream,
             &Handshake {
                 versions: SUPPORTED_VERSIONS,
-                process: process_name().to_owned(),
+                process: app_id().to_owned(),
                 pid: std::process::id(),
                 backend: self.backend.clone(),
             },
