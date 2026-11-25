@@ -18,5 +18,5 @@ use std::path::Path;
 fn main() {
     let def = Path::new(env!("CARGO_MANIFEST_DIR")).join("d3d11_forwarders.def");
     println!("cargo:rerun-if-changed={}", def.display());
-    println!("cargo:rustc-link-arg=/DEF:{}", def.display());
+    println!("cargo:rustc-link-arg-cdylib=/DEF:{}", def.display());
 }
