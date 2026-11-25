@@ -15,7 +15,7 @@ use crate::{
     components::{
         octicons::TRASH,
         tooltip::StyledTooltipProps,
-        window_frame::{self, TitlebarProps, WindowFrameProps},
+        window_frame::{TitlebarProps, WindowFrameProps},
     },
     state::{AppState, Line, LogBuffer},
     ui::shell::HeaderStyle,

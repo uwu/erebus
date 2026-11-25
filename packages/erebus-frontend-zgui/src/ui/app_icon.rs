@@ -24,8 +24,6 @@ thread_local! {
 }
 
 style! { AppIconStyle => r#"
-    /* overflow: zgui counts an image's natural size as overflow, which made lists scroll
-       sideways */
     :scope {
         flex: 0 0 auto;
         object-fit: contain;
@@ -38,7 +36,6 @@ style! { AppIconStyle => r#"
     }
 "# }
 
-/// An app's icon from an icon name or path, like a desktop entry's `Icon`.
 #[component]
 pub fn AppIcon(icon: Option<String>, #[prop(default = 24.0)] size: f32) -> impl IntoView {
     install_stylesheet(AppIconStyle::CLASS, AppIconStyle::CSS);

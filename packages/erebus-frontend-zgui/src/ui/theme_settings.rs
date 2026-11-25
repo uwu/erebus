@@ -225,7 +225,6 @@ fn NumberField(
     }
 }
 
-/// Accept both `#rrggbb` and `#rrggbbaa`.
 #[component]
 fn ColorField(value: Rgba, on_change: OnChange) -> impl IntoView {
     let picked = RwSignal::new_local(Hsva::from_rgba(value, 0.0));

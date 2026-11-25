@@ -1,7 +1,3 @@
-//! - [`state`]: what the app knows and does, as methods on [`state::AppState`]
-//! - [`ui`]: its windows, pages and dialogs, which call into `state` but never extend it
-//! - [`components`]: pieces that know nothing about `state`
-
 mod components;
 mod state;
 mod style;
