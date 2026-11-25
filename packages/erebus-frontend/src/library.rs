@@ -166,13 +166,14 @@ impl Library {
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "theme ID changed at an installed source; keep its original ID or import the new theme from a different path",
+                "this file belongs to an installed theme with a different ID. restore the original ID, or move the file to install it as a separate theme",
             ));
         }
         let entry = ThemeEntry {
             id: id.clone(),
             source,
         };
+        
         // Don't change the library or preferences until the new binary is safely on disk.
         config::write_atomic(&entry.binary_path_in(dir)?, wasm)?;
 
