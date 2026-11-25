@@ -227,7 +227,7 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
     if bytes.len() > MAX_SIZE {
         return Err(invalid("theme manifest exceeds 1 MiB"));
     }
-    
+
     let mut reader = Reader(bytes);
     let abi = reader.read_u32()?;
     if abi != crate::abi::ABI_VERSION {
@@ -241,7 +241,7 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
     if !validate_id(&id) {
         return Err(invalid("invalid theme ID"));
     }
-    
+
     let name = reader.read_string()?;
     let author = reader.read_string()?;
     let description = reader.read_string()?;
@@ -250,10 +250,10 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
         u64::from_le_bytes(reader.read_bytes()?),
         u64::from_le_bytes(reader.read_bytes()?),
     );
-    
+
     let count = reader.read_list_count(14)?;
     let mut settings = Vec::with_capacity(count);
-    
+
     for _ in 0..count {
         settings.push(OwnedSettingsField {
             key: reader.read_string()?,
@@ -262,11 +262,11 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
             kind: reader.read_settings_kind()?,
         });
     }
-    
+
     if !reader.0.is_empty() {
         return Err(invalid("unexpected trailing data in theme manifest"));
     }
-    
+
     validate(&settings)?;
 
     Ok(OwnedManifest {

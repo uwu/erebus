@@ -173,7 +173,7 @@ impl Library {
             id: id.clone(),
             source,
         };
-        
+
         // Don't change the library or preferences until the new binary is safely on disk.
         config::write_atomic(&entry.binary_path_in(dir)?, wasm)?;
 
