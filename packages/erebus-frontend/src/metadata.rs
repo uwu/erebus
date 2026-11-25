@@ -15,7 +15,7 @@ pub(crate) fn read(wasm: &[u8]) -> io::Result<OwnedManifest> {
                 encoding: Encoding::Component,
                 ..
             } => {
-                return Err(invalid("expected a core Wasm theme, not a component"));
+                return Err(invalid("expected a WebAssembly module, not a component"));
             }
             Payload::CustomSection(section) if section.name() == metadata::SECTION_NAME => {
                 if manifest.is_some() {
@@ -26,8 +26,6 @@ pub(crate) fn read(wasm: &[u8]) -> io::Result<OwnedManifest> {
             _ => {}
         }
     }
-    let manifest = manifest.ok_or_else(|| invalid(
-        "theme has no erebus.manifest metadata; rebuild it with the current erebus-theme SDK (and preserve the custom section when stripping Wasm)",
-    ))?;
+    let manifest = manifest.ok_or_else(|| invalid("theme has no erebus.manifest metadata"))?;
     Ok(manifest)
 }

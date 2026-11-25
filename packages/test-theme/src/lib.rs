@@ -12,6 +12,7 @@ struct Test {
 
 impl Theme for Test {
     const MANIFEST: Manifest = Manifest {
+        id: "network.uwu.test",
         name: "test",
         author: "tropical",
         description: "meow",

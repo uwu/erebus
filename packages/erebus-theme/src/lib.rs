@@ -33,6 +33,7 @@ pub trait Theme: Sized + 'static {
 
 #[derive(Clone, PartialEq, serde::Serialize)]
 pub struct Manifest {
+    pub id: &'static str,
     pub name: &'static str,
     pub author: &'static str,
     pub description: &'static str,
@@ -48,6 +49,7 @@ pub struct Manifest {
 /// to decode the manifest stored in a compiled theme.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct OwnedManifest {
+    pub id: String,
     pub name: String,
     pub author: String,
     pub description: String,
@@ -76,6 +78,7 @@ macro_rules! export_theme {
         const _: () = {
             const __MANIFEST: &'static $crate::Manifest = &<$theme as $crate::Theme>::MANIFEST;
             const _: () = $crate::settings::validate_settings(__MANIFEST.settings);
+            const _: () = assert!($crate::abi::metadata::validate_id(__MANIFEST.id), "invalid theme ID");
 
             #[cfg(target_arch = "wasm32")]
             #[used]

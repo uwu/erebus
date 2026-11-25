@@ -12,9 +12,7 @@ use erebus_theme::{OwnedManifest, settings::OwnedSettingsField};
 #[derive(Default)]
 pub struct Library {
     pub config_store: ConfigStore,
-    /// keyed by theme name
-    ///
-    /// TODO: probably don't key by theme name in the long run
+    /// keyed by theme ID
     pub manifests: HashMap<String, Result<OwnedManifest, String>>,
 }
 
@@ -141,32 +139,49 @@ impl Library {
     // MARK: themes
     //
 
-    /// Copies the theme at `source` into the themes directory. A theme with the same file
-    /// name will replace the existing one but keep its settings.
+    /// Installing the same manifest ID updates its binary and source without resetting settings.
     pub fn install(&mut self, source: &Path) -> io::Result<()> {
         let source = source.canonicalize()?;
         let wasm = fs::read(&source)?;
         let manifest = read_manifest(&wasm)?;
+        self.install_bytes(source, &wasm, manifest, &config::themes_dir()?)
+    }
 
-        let id = source
-            .file_stem()
-            .ok_or_else(|| io::Error::other("theme path has no file name"))?
-            .to_string_lossy()
-            .into_owned();
+    fn install_bytes(
+        &mut self,
+        source: PathBuf,
+        wasm: &[u8],
+        manifest: OwnedManifest,
+        dir: &Path,
+    ) -> io::Result<()> {
+        let id = manifest.id.clone();
+        let same_source = |entry: &ThemeEntry| {
+            entry.source == source || entry.source.canonicalize().is_ok_and(|path| path == source)
+        };
+        if self
+            .config_store
+            .themes
+            .iter()
+            .any(|entry| entry.id != id && same_source(entry))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "theme ID changed at an installed source; keep its original ID or import the new theme from a different path",
+            ));
+        }
+        let entry = ThemeEntry {
+            id: id.clone(),
+            source,
+        };
+        // Don't change the library or preferences until the new binary is safely on disk.
+        config::write_atomic(&entry.binary_path_in(dir)?, wasm)?;
 
-        let index = self.position(&id).unwrap_or_else(|| {
-            self.config_store.themes.push(ThemeEntry {
-                id: id.clone(),
-                source: source.clone(),
-            });
-            self.config_store.themes.len() - 1
-        });
-
-        let entry = &mut self.config_store.themes[index];
-        entry.source = source;
-        config::write_atomic(&entry.binary_path()?, &wasm)?;
+        if let Some(index) = self.position(&id) {
+            self.config_store.themes[index] = entry;
+        } else {
+            self.config_store.themes.push(entry);
+        }
         self.manifests.insert(id, Ok(manifest));
-
         Ok(())
     }
 
@@ -251,7 +266,16 @@ fn load_manifest(entry: &ThemeEntry) -> Result<OwnedManifest, String> {
     entry
         .binary_path()
         .and_then(fs::read)
-        .and_then(|wasm| read_manifest(&wasm))
+        .and_then(|wasm| {
+            let manifest = read_manifest(&wasm)?;
+            if manifest.id != entry.id {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "installed theme ID does not match its library entry",
+                ));
+            }
+            Ok(manifest)
+        })
         .map_err(|err| err.to_string())
 }
 

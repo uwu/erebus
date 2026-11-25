@@ -1,13 +1,15 @@
 //! The `erebus.manifest` custom section lets a host inspect a theme without running it.
 //!
-//! Version 1 starts with two little-endian u32s: the format version and theme ABI version.
+//! The section starts with the theme ABI version as a little-endian u32.
+//! That version covers both this metadata layout and the runtime interface.
 //!
-//! Strings have a u32 byte length followed by UTF-8. Lists start with a u32 item count.
-//! Integers and floats use fixed-width little-endian bytes, never native struct layout.
-//! The payload follows `Manifest` field order; versions contain three u64 components.
-//! Const manifests use `Version::new`, since semver's prerelease/build constructors aren't const.
-//! Setting tags are 0=bool, 1=int, 2=float, 3=color, 4=choice, followed by that variant's
-//! fields in declaration order. Colors contain four f32s in RGBA order.
+//! - Integers and floats are fixed-width LE bytes.
+//! - Strings have a u32 byte length followed by UTF-8.
+//! - Lists are prefixed with item count (u32).
+//! - Field order is the same as the Manifest struct basically.
+//! - Const manifests must use `Version::new`, since semver's prerelease/build constructors aren't const.
+//! - Setting tags are 0=bool, 1=int, 2=float, 3=color, 4=choice, followed by that variant's fields
+//!   in declaration order. Colors contain four f32s in RGBA order.
 
 use std::io;
 
@@ -18,7 +20,6 @@ use crate::{
 };
 
 pub const SECTION_NAME: &str = "erebus.manifest";
-pub const FORMAT_VERSION: u32 = 1;
 pub const MAX_SIZE: usize = 1024 * 1024;
 
 struct Writer<const N: usize> {
@@ -55,8 +56,9 @@ impl<const N: usize> Writer<N> {
     }
 
     const fn manifest(mut self, manifest: &Manifest) -> Self {
-        self.bytes(&FORMAT_VERSION.to_le_bytes());
         self.bytes(&crate::abi::ABI_VERSION.to_le_bytes());
+        assert!(validate_id(manifest.id), "invalid theme ID");
+        self.string(manifest.id);
         self.string(manifest.name);
         self.string(manifest.author);
         self.string(manifest.description);
@@ -141,7 +143,7 @@ fn invalid(message: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> io::
 struct Reader<'a>(&'a [u8]);
 
 impl Reader<'_> {
-    fn bytes<const N: usize>(&mut self) -> io::Result<[u8; N]> {
+    fn read_bytes<const N: usize>(&mut self) -> io::Result<[u8; N]> {
         let (value, rest) = self
             .0
             .split_at_checked(N)
@@ -150,66 +152,70 @@ impl Reader<'_> {
         Ok(value.try_into().unwrap())
     }
 
-    fn u32(&mut self) -> io::Result<u32> {
-        Ok(u32::from_le_bytes(self.bytes()?))
+    fn read_u32(&mut self) -> io::Result<u32> {
+        Ok(u32::from_le_bytes(self.read_bytes()?))
     }
 
-    fn string(&mut self) -> io::Result<String> {
-        let len = self.u32()? as usize;
+    fn read_string(&mut self) -> io::Result<String> {
+        let len = self.read_u32()? as usize;
         let (value, rest) = self
             .0
             .split_at_checked(len)
             .ok_or_else(|| invalid("truncated manifest string"))?;
         self.0 = rest;
+
         Ok(std::str::from_utf8(value).map_err(invalid)?.to_owned())
     }
 
-    fn count(&mut self, minimum_size: usize) -> io::Result<usize> {
-        let count = self.u32()? as usize;
+    fn read_list_count(&mut self, minimum_size: usize) -> io::Result<usize> {
+        let count = self.read_u32()? as usize;
         if count > self.0.len() / minimum_size {
             return Err(invalid("manifest list exceeds the remaining data"));
         }
+
         Ok(count)
     }
 
-    fn kind(&mut self) -> io::Result<OwnedSettingKind> {
-        Ok(match self.bytes::<1>()?[0] {
+    fn read_settings_kind(&mut self) -> io::Result<OwnedSettingKind> {
+        Ok(match self.read_bytes::<1>()?[0] {
             0 => OwnedSettingKind::Bool {
-                default: match self.bytes::<1>()?[0] {
+                default: match self.read_bytes::<1>()?[0] {
                     0 => false,
                     1 => true,
                     _ => return Err(invalid("invalid boolean in theme manifest")),
                 },
             },
             1 => OwnedSettingKind::Int {
-                default: i64::from_le_bytes(self.bytes()?),
-                min: i64::from_le_bytes(self.bytes()?),
-                max: i64::from_le_bytes(self.bytes()?),
+                default: i64::from_le_bytes(self.read_bytes()?),
+                min: i64::from_le_bytes(self.read_bytes()?),
+                max: i64::from_le_bytes(self.read_bytes()?),
             },
             2 => OwnedSettingKind::Float {
-                default: f64::from_le_bytes(self.bytes()?),
-                min: f64::from_le_bytes(self.bytes()?),
-                max: f64::from_le_bytes(self.bytes()?),
-                step: f64::from_le_bytes(self.bytes()?),
+                default: f64::from_le_bytes(self.read_bytes()?),
+                min: f64::from_le_bytes(self.read_bytes()?),
+                max: f64::from_le_bytes(self.read_bytes()?),
+                step: f64::from_le_bytes(self.read_bytes()?),
             },
             3 => OwnedSettingKind::Color {
                 default: Rgba {
-                    r: f32::from_le_bytes(self.bytes()?),
-                    g: f32::from_le_bytes(self.bytes()?),
-                    b: f32::from_le_bytes(self.bytes()?),
-                    a: f32::from_le_bytes(self.bytes()?),
+                    r: f32::from_le_bytes(self.read_bytes()?),
+                    g: f32::from_le_bytes(self.read_bytes()?),
+                    b: f32::from_le_bytes(self.read_bytes()?),
+                    a: f32::from_le_bytes(self.read_bytes()?),
                 },
             },
             4 => {
-                let default = self.string()?;
-                let count = self.count(8)?;
+                let default = self.read_string()?;
+                let count = self.read_list_count(8)?;
                 let mut options = Vec::with_capacity(count);
+
                 for _ in 0..count {
                     options.push(OwnedChoiceOption {
-                        value: self.string()?,
-                        label: self.string()?,
+                        value: self.read_string()?,
+                        label: self.read_string()?,
                     });
                 }
+
                 OwnedSettingKind::Choice { default, options }
             }
             _ => return Err(invalid("unknown setting kind in theme manifest")),
@@ -221,43 +227,50 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
     if bytes.len() > MAX_SIZE {
         return Err(invalid("theme manifest exceeds 1 MiB"));
     }
+    
     let mut reader = Reader(bytes);
-    let format = reader.u32()?;
-    if format != FORMAT_VERSION {
-        return Err(invalid(format!(
-            "unsupported theme metadata version {format}"
-        )));
-    }
-    let abi = reader.u32()?;
+    let abi = reader.read_u32()?;
     if abi != crate::abi::ABI_VERSION {
         return Err(invalid(format!(
             "theme requires ABI {abi}, but this frontend supports ABI {}",
             crate::abi::ABI_VERSION
         )));
     }
-    let name = reader.string()?;
-    let author = reader.string()?;
-    let description = reader.string()?;
+
+    let id = reader.read_string()?;
+    if !validate_id(&id) {
+        return Err(invalid("invalid theme ID"));
+    }
+    
+    let name = reader.read_string()?;
+    let author = reader.read_string()?;
+    let description = reader.read_string()?;
     let version = Version::new(
-        u64::from_le_bytes(reader.bytes()?),
-        u64::from_le_bytes(reader.bytes()?),
-        u64::from_le_bytes(reader.bytes()?),
+        u64::from_le_bytes(reader.read_bytes()?),
+        u64::from_le_bytes(reader.read_bytes()?),
+        u64::from_le_bytes(reader.read_bytes()?),
     );
-    let count = reader.count(14)?;
+    
+    let count = reader.read_list_count(14)?;
     let mut settings = Vec::with_capacity(count);
+    
     for _ in 0..count {
         settings.push(OwnedSettingsField {
-            key: reader.string()?,
-            label: reader.string()?,
-            description: reader.string()?,
-            kind: reader.kind()?,
+            key: reader.read_string()?,
+            label: reader.read_string()?,
+            description: reader.read_string()?,
+            kind: reader.read_settings_kind()?,
         });
     }
+    
     if !reader.0.is_empty() {
         return Err(invalid("unexpected trailing data in theme manifest"));
     }
+    
     validate(&settings)?;
+
     Ok(OwnedManifest {
+        id,
         name,
         author,
         description,
@@ -269,10 +282,12 @@ pub fn decode(bytes: &[u8]) -> io::Result<OwnedManifest> {
 fn validate(fields: &[OwnedSettingsField]) -> io::Result<()> {
     use std::collections::HashSet;
     let mut keys = HashSet::new();
+
     for field in fields {
         if field.key.is_empty() || !keys.insert(&field.key) {
             return Err(invalid("empty or duplicate setting key"));
         }
+
         let valid = match &field.kind {
             OwnedSettingKind::Bool { .. } => true,
             OwnedSettingKind::Int { default, min, max } => min <= default && default <= max,
@@ -296,6 +311,7 @@ fn validate(fields: &[OwnedSettingsField]) -> io::Result<()> {
                     && options.iter().all(|option| values.insert(&option.value))
             }
         };
+
         if !valid {
             return Err(invalid(format!(
                 "invalid schema for setting {:?}",
@@ -303,5 +319,51 @@ fn validate(fields: &[OwnedSettingsField]) -> io::Result<()> {
             )));
         }
     }
+
     Ok(())
+}
+
+/// Returns `true` if `id` is a valid theme ID.
+///
+/// A theme ID is a reverse-DNS-style name made of labels separated by dots,
+/// such as `com.example.mytheme`.
+///
+/// # Syntax
+///
+/// - 3 <= id.len() <= 128
+/// - Must contain two or more components separated by a '.'
+/// - Components must not be empty.
+/// - Components must contain only lowercase ASCII, digits, and hyphens.
+///
+/// Uppercase letters, underscores, whitespace and non-ASCII characters are
+/// rejected everywhere.
+pub const fn validate_id(id: &str) -> bool {
+    let bytes = id.as_bytes();
+    if bytes.len() < 3 || bytes.len() > 128 {
+        return false;
+    }
+
+    let mut start = 0;
+    let mut dots = 0;
+    let mut i = 0;
+
+    while i <= bytes.len() {
+        if i == bytes.len() || bytes[i] == b'.' {
+            if i == start {
+                return false;
+            }
+
+            if i < bytes.len() {
+                dots += 1;
+            }
+
+            start = i + 1;
+        } else if !bytes[i].is_ascii_lowercase() && !bytes[i].is_ascii_digit() && bytes[i] != b'-' {
+            return false;
+        }
+
+        i += 1;
+    }
+
+    dots > 0
 }

@@ -5,7 +5,7 @@
 //! <config_dir>/erebus/
 //! - config.toml
 //! - themes/
-//!     - <id>.wasm
+//!     - theme-<id>.wasm
 //! ```
 
 use std::{
@@ -58,7 +58,7 @@ pub struct ConfigStore {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeEntry {
-    /// file stem of the theme's binary in [`themes_dir`]
+    /// Stable ID declared in the theme manifest.
     pub id: String,
     /// Keep the original path so the frontend can watch for theme updates.
     pub source: PathBuf,
@@ -90,7 +90,18 @@ pub struct AppTheme {
 
 impl ThemeEntry {
     pub fn binary_path(&self) -> io::Result<PathBuf> {
-        Ok(themes_dir()?.join(&self.id).with_extension("wasm"))
+        self.binary_path_in(&themes_dir()?)
+    }
+
+    pub fn binary_path_in(&self, dir: &Path) -> io::Result<PathBuf> {
+        if !erebus_theme::abi::metadata::validate_id(&self.id) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid theme ID",
+            ));
+        }
+        // The prefix keeps IDs like con.example from becoming Windows device names.
+        Ok(dir.join(format!("theme-{}.wasm", self.id)))
     }
 }
 
