@@ -3,8 +3,6 @@ use std::sync::Arc;
 use zgui::app::Fonts;
 use zgui_ui_tokens::Theme;
 
-/// Geist Serif is bundled for the wordmark under the OFL (`fonts/OFL.txt`). Other faces come
-/// from the system.
 pub fn fonts() -> Fonts {
     let fonts = Fonts::system();
     fonts
