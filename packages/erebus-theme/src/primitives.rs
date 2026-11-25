@@ -46,16 +46,18 @@ impl Hsla {
 
     /// Converts straight sRGB components in `0.0..=1.0` to HSLA.
     pub const fn from_rgba_f32(r: f32, g: f32, b: f32, a: f32) -> Self {
-        let max = r.max(g).max(b);
-        let min = r.min(g).min(b);
+        let max = r.max(g.max(b));
+        let min = r.min(g.min(b));
         let delta = max - min;
 
         let l = (max + min) / 2.0;
 
-        let s = if delta == 0.0 {
+        let s = if l == 0.0 || l == 1.0 {
             0.0
+        } else if l < 0.5 {
+            delta / (2.0 * l)
         } else {
-            delta / (1.0 - (2.0 * l - 1.0).abs())
+            delta / (2.0 - 2.0 * l)
         };
 
         let h = if delta == 0.0 {
@@ -83,39 +85,7 @@ impl Hsla {
 
 impl From<Rgba> for Hsla {
     fn from(color: Rgba) -> Self {
-        let r = color.r;
-        let g = color.g;
-        let b = color.b;
-
-        let max = r.max(g.max(b));
-        let min = r.min(g.min(b));
-        let delta = max - min;
-
-        let l = (max + min) / 2.0;
-        let s = if l == 0.0 || l == 1.0 {
-            0.0
-        } else if l < 0.5 {
-            delta / (2.0 * l)
-        } else {
-            delta / (2.0 - 2.0 * l)
-        };
-
-        let h = if delta == 0.0 {
-            0.0
-        } else if max == r {
-            ((g - b) / delta).rem_euclid(6.0) / 6.0
-        } else if max == g {
-            ((b - r) / delta + 2.0) / 6.0
-        } else {
-            ((r - g) / delta + 4.0) / 6.0
-        };
-
-        Hsla {
-            h,
-            s,
-            l,
-            a: color.a,
-        }
+        Self::from_rgba_f32(color.r, color.g, color.b, color.a)
     }
 }
 
