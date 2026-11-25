@@ -8,6 +8,7 @@ name = "erebus_vulkan"
 crate-type = ["cdylib"]
 
 [features]
+default = ["phoenix"]
 phoenix = ["erebus-backend/phoenix"]
 
 [dependencies]

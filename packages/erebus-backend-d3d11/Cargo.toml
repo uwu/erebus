@@ -10,6 +10,7 @@ name = "d3d11"
 crate-type = ["cdylib"]
 
 [features]
+default = ["phoenix"]
 phoenix = ["erebus-backend/phoenix"]
 
 [dependencies]
