@@ -5,7 +5,7 @@
 //! to the config store have been made by the user in the UI.
 
 use std::{
-    io,
+    fs, io,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
     thread,
 };
@@ -61,6 +61,11 @@ impl IpcFrontend {
     /// Starts listening on [`socket_name`](transport::socket_name). `on_event` is called from
     /// background threads.
     pub fn start(on_event: impl Fn(Event) + Send + Sync + 'static) -> io::Result<Self> {
+        // the runtime directory is only accessible to the user, so this is too
+        if let Some(dir) = transport::socket_dir() {
+            fs::create_dir_all(dir)?;
+        }
+
         let listener = ListenerOptions::new()
             .name(transport::socket_name()?)
             .try_overwrite(true)

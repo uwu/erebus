@@ -1,0 +1,6 @@
+[build]
+target = "x86_64-pc-windows-msvc"
+target-dir = "../../target/d3d11"
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld"

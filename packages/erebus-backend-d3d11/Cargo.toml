@@ -3,16 +3,19 @@ name = "erebus-backend-d3d11"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+
 [lib]
 name = "d3d11"
 crate-type = ["cdylib"]
 
 [features]
+default = ["phoenix"]
 phoenix = ["erebus-backend/phoenix"]
 
 [dependencies]
-erebus-backend = { workspace = true }
-erebus-theme = { workspace = true }
+erebus-backend = { path = "../erebus-backend" }
+erebus-theme = { path = "../erebus-theme" }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Diagnostics_Debug",
@@ -25,5 +28,5 @@ fxhash = "0.2.1"
 log = "0.4"
 minhook = "0.9"
 
-[build-dependencies]
-goblin = "0.9"
+[dev-dependencies]
+goblin = "0.9" # for gen-def

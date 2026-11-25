@@ -5,9 +5,10 @@ on:
     branches: [main]
     paths: &paths
       - "packages/erebus-frontend/**"
-      - "packages/erebus-frontend-gtk/**"
-      - "packages/erebus-frontend-winui/**"
+      - "packages/erebus-frontend-zgui/**"
       - "packages/erebus-backend/**"
+      - "packages/erebus-backend-vulkan/**"
+      - "packages/erebus-backend-d3d11/**"
       - "packages/erebus-ipc/**"
       - "packages/erebus-theme/**"
       - "Cargo.toml"
@@ -27,18 +28,22 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_PROFILE_DEV_DEBUG: "0"
 
 jobs:
-  gtk:
-    name: erebus-frontend-gtk
+  linux:
+    name: erebus (Linux)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Build Dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgtk-4-dev libadwaita-1-dev
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libxcb1-dev libxcursor-dev libxi-dev libxrandr-dev \
+            libfontconfig1-dev
 
       - name: Install Rust
         run: rustup toolchain install && rustup component add clippy
@@ -46,22 +51,31 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Clippy
-        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-gtk --all-targets
+        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-zgui --all-targets
 
       - name: Test
-        run: cargo test --locked -p erebus-frontend -p erebus-frontend-gtk
+        run: cargo test --locked -p erebus-frontend -p erebus-frontend-zgui
 
       - name: Build release
-        run: cargo build --locked --release -p erebus-frontend-gtk
+        run: cargo build --locked --release -p erebus-frontend-zgui -p erebus-backend-vulkan
+
+      # bundle the backend with the frontend!
+      # tar preserves the executable bit after extraction
+      - name: Package
+        run: |
+          mkdir -p dist
+          tar -czf dist/erebus-linux-x86_64.tar.gz \
+            -C target/release erebus liberebus_vulkan.so
 
       - uses: actions/upload-artifact@v7
         with:
-          name: erebus-frontend-gtk-linux-x86_64
-          path: target/release/erebus-frontend-gtk
+          name: erebus-linux-x86_64
+          path: dist/erebus-linux-x86_64.tar.gz
+          if-no-files-found: error
           retention-days: 14
 
-  winui:
-    name: erebus-frontend-winui
+  windows:
+    name: erebus (Windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -72,18 +86,33 @@ jobs:
           rustup component add clippy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            packages/erebus-backend-d3d11 -> ../../target/d3d11
 
       - name: Clippy
-        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-winui --all-targets
+        run: cargo clippy --locked -p erebus-frontend -p erebus-frontend-zgui --all-targets
 
       - name: Test
-        run: cargo test --locked -p erebus-frontend -p erebus-frontend-winui
+        run: cargo test --locked -p erebus-frontend -p erebus-frontend-zgui
 
-      - name: Build release
-        run: cargo build --locked --release -p erebus-frontend-winui
+      - name: Build frontend
+        run: cargo build --locked --release -p erebus-frontend-zgui
+
+      - name: Build backend
+        working-directory: packages/erebus-backend-d3d11
+        run: cargo build --locked --release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path target/release/erebus.exe, target/d3d11/x86_64-pc-windows-msvc/release/d3d11.dll -DestinationPath dist/erebus-windows-x86_64.zip
 
       - uses: actions/upload-artifact@v7
         with:
-          name: erebus-frontend-winui-windows-x86_64
-          path: target/release/erebus-frontend-winui.exe
+          name: erebus-windows-x86_64
+          path: dist/erebus-windows-x86_64.zip
+          if-no-files-found: error
           retention-days: 14

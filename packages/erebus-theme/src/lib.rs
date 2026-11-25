@@ -33,6 +33,7 @@ pub trait Theme: Sized + 'static {
 
 #[derive(Clone, PartialEq, serde::Serialize)]
 pub struct Manifest {
+    pub id: &'static str,
     pub name: &'static str,
     pub author: &'static str,
     pub description: &'static str,
@@ -45,9 +46,10 @@ pub struct Manifest {
 /// [`Manifest`] must be constructable in const-contexts which means we're forced
 /// to use static slices and whatnot rather than Vec/String. This version of the type
 /// is one with owned variants of those fields so it can support serde::Deserialize
-/// to decode the manifest from a running theme.
+/// to decode the manifest stored in a compiled theme.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct OwnedManifest {
+    pub id: String,
     pub name: String,
     pub author: String,
     pub description: String,
@@ -61,9 +63,9 @@ macro_rules! export_theme {
         $(
             #[unsafe(no_mangle)]
             pub extern "C" fn $export(ptr: u32, len: u32) -> u32 {
-                $crate::abi::with_theme(&__EREBUS_THEME, |theme: &mut $theme| {
+                $crate::abi::helpers::with_theme(&__EREBUS_THEME, |theme: &mut $theme| {
                     unsafe {
-                        $crate::abi::apply::<$crate::primitives::$primitive>(ptr, len, |item| {
+                        $crate::abi::helpers::apply::<$crate::primitives::$primitive>(ptr, len, |item| {
                             $crate::Theme::$method(theme, item)
                         }) as u32
                     }
@@ -74,8 +76,15 @@ macro_rules! export_theme {
 
     ($theme:ty) => {
         const _: () = {
-            const __MANIFEST: &'static Manifest = &<$theme as $crate::Theme>::MANIFEST;
+            const __MANIFEST: &'static $crate::Manifest = &<$theme as $crate::Theme>::MANIFEST;
             const _: () = $crate::settings::validate_settings(__MANIFEST.settings);
+            const _: () = assert!($crate::abi::metadata::validate_id(__MANIFEST.id), "invalid theme ID");
+
+            #[cfg(target_arch = "wasm32")]
+            #[used]
+            #[unsafe(link_section = "erebus.manifest")]
+            static __EREBUS_MANIFEST: [u8; $crate::abi::metadata::encoded_len(__MANIFEST)] =
+                $crate::abi::metadata::encode(__MANIFEST);
 
             ::std::thread_local! {
                 static __EREBUS_THEME: ::core::cell::RefCell<::core::option::Option<$theme>> =
@@ -85,7 +94,7 @@ macro_rules! export_theme {
             #[unsafe(no_mangle)]
             pub extern "C" fn init(ptr: u32, len: u32) {
                 unsafe {
-                    $crate::abi::init(&__EREBUS_THEME, ptr, len);
+                    $crate::abi::helpers::init(&__EREBUS_THEME, ptr, len);
                 }
             }
 
@@ -96,17 +105,12 @@ macro_rules! export_theme {
 
             #[unsafe(no_mangle)]
             pub extern "C" fn alloc(len: u32) -> u32 {
-                $crate::abi::alloc(len)
+                $crate::abi::helpers::alloc(len)
             }
 
             #[unsafe(no_mangle)]
             pub extern "C" fn dealloc(ptr: u32, len: u32) {
-                unsafe { $crate::abi::dealloc(ptr, len) }
-            }
-
-            #[unsafe(no_mangle)]
-            pub extern "C" fn manifest() -> u64 {
-                $crate::abi::manifest::<$theme>()
+                unsafe { $crate::abi::helpers::dealloc(ptr, len) }
             }
 
             $crate::export_theme!(@primitives $theme {

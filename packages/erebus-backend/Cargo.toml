@@ -3,6 +3,9 @@ name = "erebus-backend"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+phoenix = []
+
 [dependencies]
 erebus-theme = { workspace = true }
 erebus-ipc = { workspace = true }

@@ -6,16 +6,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use erebus_backend::ThemeModule;
 use erebus_ipc::config::{self, AppTheme, ConfigStore, ThemeEntry};
 use erebus_theme::{OwnedManifest, settings::OwnedSettingsField};
 
 #[derive(Default)]
 pub struct Library {
     pub config_store: ConfigStore,
-    /// keyed by theme name
-    ///
-    /// TODO: probably don't key by theme name in the long run
+    /// keyed by theme ID
     pub manifests: HashMap<String, Result<OwnedManifest, String>>,
 }
 
@@ -61,6 +58,70 @@ impl Library {
         true
     }
 
+    /// Adds or updates an app a frontend injected, keeping its theme settings
+    /// if it's known already. Returns whether anything changed.
+    pub fn set_app(&mut self, app: &LibraryApp) -> bool {
+        let config = self.config_store.apps.entry(app.id.clone()).or_default();
+        let before = (
+            config.installed_app.clone(),
+            config.name.clone(),
+            config.icon.clone(),
+        );
+
+        config.installed_app = Some(app.installed_app.clone());
+        config.name = Some(app.name.clone());
+        config.icon = app.icon.clone();
+
+        before
+            != (
+                config.installed_app.clone(),
+                config.name.clone(),
+                config.icon.clone(),
+            )
+    }
+
+    /// Makes the apps a frontend injected match `injected`, every installed app that's
+    /// injected right now: missing ones are added, and ones that were uninjected some other
+    /// way are dropped. Returns whether anything changed.
+    pub fn sync_apps(&mut self, injected: &[LibraryApp]) -> bool {
+        let before = self.config_store.apps.len();
+        self.config_store.apps.retain(|id, config| {
+            config.installed_app.as_ref().is_none_or(|installed| {
+                injected
+                    .iter()
+                    .any(|app| app.id == *id && app.installed_app == *installed)
+            })
+        });
+        let mut changed = self.config_store.apps.len() != before;
+
+        for app in injected {
+            changed |= self.set_app(app);
+        }
+        changed
+    }
+
+    /// The installed app `process` was injected through, if a frontend injected it.
+    pub fn installed_app(&self, process: &str) -> Option<&str> {
+        self.config_store
+            .apps
+            .get(process)?
+            .installed_app
+            .as_deref()
+    }
+
+    /// What to call an app.
+    pub fn app_name<'a>(&'a self, process: &'a str) -> &'a str {
+        self.config_store
+            .apps
+            .get(process)
+            .and_then(|app| app.name.as_deref())
+            .unwrap_or(process)
+    }
+
+    pub fn app_icon(&self, process: &str) -> Option<&str> {
+        self.config_store.apps.get(process)?.icon.as_deref()
+    }
+
     pub fn app_theme(&self, process: &str, id: &str) -> Option<&AppTheme> {
         self.config_store.apps.get(process)?.themes.get(id)
     }
@@ -78,32 +139,50 @@ impl Library {
     // MARK: themes
     //
 
-    /// Copies the theme at `source` into the themes directory. A theme with the same file
-    /// name will replace the existing one but keep its settings.
-    pub fn install(&mut self, source: &Path) -> erebus_backend::Result<()> {
+    /// Installing the same manifest ID updates its binary and source without resetting settings.
+    pub fn install(&mut self, source: &Path) -> io::Result<()> {
         let source = source.canonicalize()?;
         let wasm = fs::read(&source)?;
         let manifest = read_manifest(&wasm)?;
+        self.install_bytes(source, &wasm, manifest, &config::themes_dir()?)
+    }
 
-        let id = source
-            .file_stem()
-            .ok_or_else(|| io::Error::other("theme path has no file name"))?
-            .to_string_lossy()
-            .into_owned();
+    fn install_bytes(
+        &mut self,
+        source: PathBuf,
+        wasm: &[u8],
+        manifest: OwnedManifest,
+        dir: &Path,
+    ) -> io::Result<()> {
+        let id = manifest.id.clone();
+        let same_source = |entry: &ThemeEntry| {
+            entry.source == source || entry.source.canonicalize().is_ok_and(|path| path == source)
+        };
+        if self
+            .config_store
+            .themes
+            .iter()
+            .any(|entry| entry.id != id && same_source(entry))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "this file belongs to an installed theme with a different ID. restore the original ID, or move the file to install it as a separate theme",
+            ));
+        }
+        let entry = ThemeEntry {
+            id: id.clone(),
+            source,
+        };
 
-        let index = self.position(&id).unwrap_or_else(|| {
-            self.config_store.themes.push(ThemeEntry {
-                id: id.clone(),
-                source: source.clone(),
-            });
-            self.config_store.themes.len() - 1
-        });
+        // Don't change the library or preferences until the new binary is safely on disk.
+        config::write_atomic(&entry.binary_path_in(dir)?, wasm)?;
 
-        let entry = &mut self.config_store.themes[index];
-        entry.source = source;
-        config::write_atomic(&entry.binary_path()?, &wasm)?;
+        if let Some(index) = self.position(&id) {
+            self.config_store.themes[index] = entry;
+        } else {
+            self.config_store.themes.push(entry);
+        }
         self.manifests.insert(id, Ok(manifest));
-
         Ok(())
     }
 
@@ -180,16 +259,24 @@ impl Library {
     }
 }
 
-fn read_manifest(wasm: &[u8]) -> erebus_backend::Result<OwnedManifest> {
-    ThemeModule::from_bytes(wasm)?.manifest()
+pub fn read_manifest(wasm: &[u8]) -> io::Result<OwnedManifest> {
+    crate::metadata::read(wasm)
 }
 
 fn load_manifest(entry: &ThemeEntry) -> Result<OwnedManifest, String> {
     entry
         .binary_path()
         .and_then(fs::read)
-        .map_err(Into::into)
-        .and_then(|wasm| read_manifest(&wasm))
+        .and_then(|wasm| {
+            let manifest = read_manifest(&wasm)?;
+            if manifest.id != entry.id {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "installed theme ID does not match its library entry",
+                ));
+            }
+            Ok(manifest)
+        })
         .map_err(|err| err.to_string())
 }
 
@@ -203,6 +290,17 @@ fn is_outdated(entry: &ThemeEntry) -> bool {
         (source, None) => source.is_some(),
         (None, _) => false,
     }
+}
+
+/// An app a frontend injected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LibraryApp {
+    /// the ID it's configured under
+    pub id: String,
+    /// the ID of the installed app that was changed to inject it, like a desktop file ID
+    pub installed_app: String,
+    pub name: String,
+    pub icon: Option<String>,
 }
 
 /// What's shown about a theme wherever it's listed.

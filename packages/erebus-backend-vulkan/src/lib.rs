@@ -16,7 +16,7 @@ use std::{
     sync::{LazyLock, Mutex, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use erebus_backend::{PrimitiveKind, themes};
+use erebus_backend::{PrimitiveKind, preserve_renderer_metadata, themes};
 
 use fxhash::FxHashMap;
 use vk::{
@@ -278,7 +278,9 @@ impl Device {
 
             let mut changed = false;
             for theme in themes.iter_mut() {
-                changed |= theme.apply(kind, bytes) == Some(true);
+                preserve_renderer_metadata(bytes, kind, |bytes| {
+                    changed |= theme.apply(kind, bytes) == Some(true);
+                });
             }
 
             if changed {

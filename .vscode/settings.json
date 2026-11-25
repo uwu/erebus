@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.semanticHighlighting.strings.enable": false,
+    "rust-analyzer.linkedProjects": [
+        "Cargo.toml",
+        "packages/erebus-backend-d3d11/Cargo.toml"
+    ]
+}

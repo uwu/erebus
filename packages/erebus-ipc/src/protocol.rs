@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-/// Protocol versions this build supports. This covers the on-disk [`store`] format too.
+/// Also versions the on-disk [`ConfigStore`](crate::config::ConfigStore) format.
 pub const SUPPORTED_VERSIONS: RangeInclusive<u32> = 1..=1;
 
 //
@@ -10,13 +10,12 @@ pub const SUPPORTED_VERSIONS: RangeInclusive<u32> = 1..=1;
 /// The first message a backend sends after connecting.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Handshake {
-    /// list of supported protocol versions by the backend
     pub versions: RangeInclusive<u32>,
-    /// name of the app the backend is running in
+    /// Despite the field name, this is the app's config ID. The backend resolves it
+    /// from [`APP_ID_ENV`](crate::config::APP_ID_ENV), a marker, or the executable name.
     pub process: String,
-    /// name of the backend that erebus is running in
+    /// Identifies the backend, such as Vulkan or Direct3D 11.
     pub backend: String,
-    /// process ID
     pub pid: u32,
 }
 
@@ -28,7 +27,7 @@ pub enum HandshakeReply {
 }
 
 impl HandshakeReply {
-    /// Picks the newest version both `SUPPORTED_VERSIONS` and the peer can speak.
+    /// Use the newest shared version, or reject the connection if the ranges don't overlap.
     pub fn negotiate_version(handshake: &Handshake) -> Self {
         let lo = *SUPPORTED_VERSIONS.start().max(handshake.versions.start());
         let hi = *SUPPORTED_VERSIONS.end().min(handshake.versions.end());
@@ -47,7 +46,7 @@ impl HandshakeReply {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FrontendMessage {
-    /// The [`store::Store`] on disk or the theme binaries it points to changed.
+    /// Reload the config and themes from disk; either may have changed.
     Sync,
 }
 

@@ -67,18 +67,23 @@ jobs:
           rustup component add clippy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/erebus-backend-d3d11 -> ../../target/d3d11
 
       - name: Clippy
-        run: cargo clippy --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-d3d11 --all-targets
+        working-directory: packages/erebus-backend-d3d11
+        run: cargo clippy --locked --all-targets
 
       - name: Test
-        run: cargo test --locked -p erebus-theme -p erebus-ipc -p erebus-backend -p erebus-backend-d3d11
+        working-directory: packages/erebus-backend-d3d11
+        run: cargo test --locked
 
       - name: Build release
-        run: cargo build --locked --release -p erebus-backend-d3d11
+        working-directory: packages/erebus-backend-d3d11
+        run: cargo build --locked --release
 
       - uses: actions/upload-artifact@v7
         with:
           name: d3d11.dll
-          path: target/release/d3d11.dll
+          path: target/d3d11/x86_64-pc-windows-msvc/release/d3d11.dll
           retention-days: 14
