@@ -13,10 +13,26 @@
 //! we're hijacking the dll. Instead we expect a copy of the original dll to be
 //! present in the search path at d3d11_orig.dll. Yeesh, I hate windows.
 
-use std::path::Path;
+use std::{fs, path::Path};
 
 fn main() {
     let def = Path::new(env!("CARGO_MANIFEST_DIR")).join("d3d11_forwarders.def");
     println!("cargo:rerun-if-changed={}", def.display());
-    println!("cargo:rustc-link-arg-cdylib=/DEF:{}", def.display());
+
+    let definitions = fs::read_to_string(&def).expect("failed to read D3D11 forwarders");
+    
+    for line in definitions.lines() {
+        let export = line.split(';').next().unwrap().trim();
+        
+        if export.is_empty() || export == "EXPORTS" {
+            continue;
+        }
+
+        assert!(
+            export.contains('='),
+            "expected a forwarded export: {export}"
+        );
+        
+        println!("cargo:rustc-link-arg-cdylib=/EXPORT:{export}");
+    }
 }
