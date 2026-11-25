@@ -1,8 +1,8 @@
 //! Application state
 
 mod apps;
-mod instances;
 mod inject;
+mod instances;
 mod library;
 mod nav;
 

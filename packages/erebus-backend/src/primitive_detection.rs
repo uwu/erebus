@@ -16,7 +16,7 @@ pub trait Validate: Copy + PartialEq {
 }
 
 /// Validates the `pad` field on scene primitives.
-/// 
+///
 /// Phoenix shoves renderer metadata in here instead, so we shouldn't assume zero in that case.
 fn pad_looks_valid(pad: u32) -> bool {
     cfg!(feature = "phoenix") || pad == 0
