@@ -1,7 +1,7 @@
 //! The `erebus.manifest` custom section lets a host inspect a theme without running it.
 //!
 //! Version 1 starts with two little-endian u32s: the format version and theme ABI version.
-//! 
+//!
 //! Strings have a u32 byte length followed by UTF-8. Lists start with a u32 item count.
 //! Integers and floats use fixed-width little-endian bytes, never native struct layout.
 //! The payload follows `Manifest` field order; versions contain three u64 components.
