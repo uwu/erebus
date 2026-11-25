@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use erebus_theme::{OwnedManifest, settings::SettingValue};
+use erebus_theme::settings::SettingValue;
 
 use wasmtime::{
     Config, Engine, Instance, Linker, Memory, Module, Store, TypedFunc, ensure, format_err,
@@ -52,27 +52,6 @@ impl ThemeModule {
     /// Creates a fresh, independent instance of the theme.
     pub fn instantiate(&self) -> wasmtime::Result<ThemeCtx> {
         ThemeCtx::new(self)
-    }
-
-    /// Reads the theme's manifest out of a throwaway instance.
-    pub fn manifest(&self) -> wasmtime::Result<OwnedManifest> {
-        let mut ctx = self.instantiate()?;
-        ctx.check_abi_version()?;
-
-        let manifest = ctx
-            .instance
-            .get_typed_func::<(), u64>(&mut ctx.store, "manifest")?;
-
-        ctx.store.set_fuel(ctx.fuel_per_call)?;
-        let packed = manifest.call(&mut ctx.store, ())?;
-        let (ptr, len) = ((packed >> 32) as u32, packed as u32);
-        ensure!(ptr != 0, "theme failed to serialize its manifest");
-
-        let mut bytes = vec![0; len as usize];
-        ctx.memory.read(&ctx.store, ptr as usize, &mut bytes)?;
-        ctx.dealloc.call(&mut ctx.store, (ptr, len))?;
-
-        Ok(postcard::from_bytes(&bytes)?)
     }
 }
 

@@ -1414,13 +1414,13 @@ name = "erebus-frontend"
 version = "0.1.0"
 dependencies = [
  "dirs",
- "erebus-backend",
  "erebus-ipc",
  "erebus-theme",
  "interprocess",
  "lnk",
  "notify-debouncer-mini",
  "pelite",
+ "wasmparser 0.261.0",
  "windows-sys 0.61.2",
 ]
 

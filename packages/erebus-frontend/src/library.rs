@@ -6,7 +6,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use erebus_backend::ThemeModule;
 use erebus_ipc::config::{self, AppTheme, ConfigStore, ThemeEntry};
 use erebus_theme::{OwnedManifest, settings::OwnedSettingsField};
 
@@ -144,7 +143,7 @@ impl Library {
 
     /// Copies the theme at `source` into the themes directory. A theme with the same file
     /// name will replace the existing one but keep its settings.
-    pub fn install(&mut self, source: &Path) -> erebus_backend::Result<()> {
+    pub fn install(&mut self, source: &Path) -> io::Result<()> {
         let source = source.canonicalize()?;
         let wasm = fs::read(&source)?;
         let manifest = read_manifest(&wasm)?;
@@ -244,15 +243,14 @@ impl Library {
     }
 }
 
-fn read_manifest(wasm: &[u8]) -> erebus_backend::Result<OwnedManifest> {
-    ThemeModule::from_bytes(wasm)?.manifest()
+pub fn read_manifest(wasm: &[u8]) -> io::Result<OwnedManifest> {
+    crate::metadata::read(wasm)
 }
 
 fn load_manifest(entry: &ThemeEntry) -> Result<OwnedManifest, String> {
     entry
         .binary_path()
         .and_then(fs::read)
-        .map_err(Into::into)
         .and_then(|wasm| read_manifest(&wasm))
         .map_err(|err| err.to_string())
 }

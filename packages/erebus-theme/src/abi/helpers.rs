@@ -6,8 +6,6 @@ use crate::{
     settings::{SettingValue, Settings},
 };
 
-pub const ABI_VERSION: u32 = 1;
-
 pub fn alloc(len: u32) -> u32 {
     match Layout::from_size_align(len as usize, align_of::<u32>()) {
         Ok(layout) if layout.size() > 0 => unsafe { std::alloc::alloc(layout) as usize as u32 },
@@ -37,25 +35,6 @@ pub fn with_theme<T: Theme, R>(
 
         f(theme)
     })
-}
-
-pub fn manifest<T: Theme>() -> u64 {
-    let Ok(bytes) = postcard::to_allocvec(&T::MANIFEST) else {
-        return 0;
-    };
-    let Ok(len) = u32::try_from(bytes.len()) else {
-        return 0;
-    };
-
-    let ptr = alloc(len);
-    if ptr == 0 {
-        return 0;
-    }
-
-    unsafe { slice::from_raw_parts_mut(ptr as usize as *mut u8, len as usize) }
-        .copy_from_slice(&bytes);
-
-    (u64::from(ptr) << 32) | u64::from(len)
 }
 
 pub unsafe fn init<T: Theme>(instance: &'static LocalKey<RefCell<Option<T>>>, ptr: u32, len: u32) {
